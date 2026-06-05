@@ -1,0 +1,27 @@
+# Залежності (найважливіше!)
+node_modules/
+
+# Файли середовища та секрети
+.env
+.env.local
+
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Системні файли ОС
+.DS_Store
+Thumbs.db
+
+# Налаштування редакторів (VS Code, WebStorm)
+.vscode/
+.idea/
+
+# Тимчасові файли та бази даних (якщо ви використовуєте локальні файли)
+*.sqlite
+*.sqlite-journal
+dist/
+build/
+coverage/

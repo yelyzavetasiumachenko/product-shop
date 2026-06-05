@@ -1,0 +1,1160 @@
+<%- include('../partials/header') %>
+
+<style>
+  /* Прибираємо синє виділення тексту в інпутах кількості */
+  .qty-input::selection {
+    background: transparent;
+  }
+</style>
+
+<div class="container-fluid mt-3" style="height: calc(100vh - 70px)">
+  <div class="row h-100">
+    <div
+      class="col-md-8 d-flex flex-column bg-white p-3 border rounded shadow-sm h-100"
+    >
+      <div
+        class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3"
+      >
+        <div>
+          <h4 class="mb-0">
+            <i class="bi bi-receipt"></i> Чек
+            <span
+              id="receipt-id"
+              class="text-primary fw-bold"
+              data-next-number="<%= nextReceiptNumber %>"
+              >#00000</span
+            >
+          </h4>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold fs-5 text-dark" id="live-clock">00:00:00</div>
+          <span class="badge bg-secondary">Зміна відкрита</span>
+        </div>
+      </div>
+
+      <div class="flex-grow-1 overflow-auto" style="max-height: 65vh">
+        <table class="table table-hover align-middle">
+          <thead class="table-dark sticky-top">
+            <tr>
+              <th>Штрих-код</th>
+              <th>Назва товару</th>
+              <th class="text-center" style="width: 150px">Кількість</th>
+              <th class="text-end">Ціна</th>
+              <th class="text-end">Сума</th>
+              <th class="text-center"></th>
+            </tr>
+          </thead>
+          <tbody id="cart-items"></tbody>
+        </table>
+        <div id="empty-cart-message" class="text-center text-muted py-5">
+          <i class="bi bi-cart text-light display-1"></i>
+          <p class="mt-3 fs-5">
+            Скануйте штрих-код або натисніть
+            <b>[F2]</b> для пошуку
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4 d-flex flex-column h-100">
+      <div class="card shadow-sm mb-3 border-primary border-top border-3">
+        <div class="card-body position-relative">
+          <label class="form-label fw-bold"
+            ><i class="bi bi-upc-scan"></i> Пошук / Сканер [F2]:</label
+          >
+          <form id="barcode-form" onsubmit="handleBarcodeSubmit(event)">
+            <div class="input-group input-group-lg">
+              <input
+                type="text"
+                id="barcode-input"
+                class="form-control"
+                placeholder="Штрих-код або назва товару..."
+                autofocus
+                autocomplete="off"
+                oninput="handleSearchInput(this.value)"
+              />
+              <button
+                type="button"
+                class="btn btn-danger"
+                onclick="clearSearchInput()"
+              >
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </form>
+
+          <ul
+            id="search-results-dropdown"
+            class="list-group position-absolute w-100 shadow-lg mt-1"
+            style="
+              display: none;
+              z-index: 1000;
+              max-height: 300px;
+              overflow-y: auto;
+              left: 0;
+            "
+          ></ul>
+        </div>
+      </div>
+      <div class="card shadow-sm mb-3 border-success border-top border-3">
+        <div class="card-body position-relative">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label fw-bold mb-0"
+              ><i class="bi bi-person-vcard"></i> Клієнт:</label
+            >
+            <button
+              class="btn btn-link text-decoration-none text-success fw-bold p-0"
+              data-bs-toggle="modal"
+              data-bs-target="#newCustomerModal"
+            >
+              <i class="bi bi-person-plus"></i> Створити картку
+            </button>
+          </div>
+
+          <div class="input-group input-group-lg" id="customer-search-group">
+            <input
+              type="text"
+              id="loyalty-input"
+              class="form-control"
+              placeholder="Телефон або прізвище..."
+              autocomplete="off"
+              oninput="handleCustomerSearch(this.value)"
+            />
+            <button
+              class="btn btn-danger"
+              type="button"
+              onclick="clearCustomerInput()"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <ul
+            id="customer-results-dropdown"
+            class="list-group position-absolute w-100 shadow-lg mt-1"
+            style="
+              display: none;
+              z-index: 1000;
+              max-height: 250px;
+              overflow-y: auto;
+              left: 0;
+            "
+          ></ul>
+
+          <div
+            id="loyalty-info"
+            class="mt-2 p-2 bg-success-subtle rounded border border-success"
+            style="display: none"
+          >
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <span class="fw-bold text-dark d-block" id="client-name-display"
+                  >Ім'я Прізвище</span
+                >
+                <small class="text-muted" id="client-phone-display"
+                  >+380...</small
+                >
+              </div>
+
+              <div class="d-flex align-items-center gap-3">
+                <div class="text-end">
+                  <small
+                    class="text-success fw-bold d-block"
+                    style="font-size: 0.75rem"
+                    >Бонуси:</small
+                  >
+                  <span class="badge bg-success fs-6" id="client-bonuses"
+                    >0.00 ₴</span
+                  >
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-danger border-0"
+                  onclick="confirmRemoveCustomer()"
+                  title="Прибрати клієнта з чека"
+                >
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade" id="newCustomerModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white py-3">
+              <h5 class="modal-title fw-bold">
+                <i class="bi bi-person-plus"></i> Нова картка
+              </h5>
+              <button
+                type="button"
+                class="btn btn-danger btn-sm shadow-sm"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+                title="Закрити"
+              >
+                <i class="bi bi-x-lg fw-bold"></i>
+              </button>
+            </div>
+            <div class="modal-body p-4">
+              <div class="mb-3">
+                <label class="form-label fw-bold mb-1">Ім'я *</label>
+                <input
+                  type="text"
+                  id="new-cust-first"
+                  class="form-control form-control-lg"
+                  placeholder="Введіть ім'я"
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold mb-1">Прізвище *</label>
+                <input
+                  type="text"
+                  id="new-cust-last"
+                  class="form-control form-control-lg"
+                  placeholder="Введіть прізвище"
+                />
+              </div>
+              <div class="mb-4">
+                <label class="form-label fw-bold mb-1">Номер телефону *</label>
+                <div class="input-group input-group-lg">
+                  <span class="input-group-text fw-bold bg-light text-muted"
+                    >+380</span
+                  >
+                  <input
+                    type="tel"
+                    id="new-cust-phone"
+                    class="form-control"
+                    placeholder="991234567"
+                    maxlength="9"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                  />
+                </div>
+              </div>
+              <button
+                class="btn btn-success btn-lg w-100 fw-bold shadow"
+                onclick="submitNewCustomer()"
+              >
+                Створити та вибрати
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="card shadow-sm bg-light flex-grow-1 d-flex flex-column justify-content-between p-3"
+      >
+        <div class="text-center pt-2">
+          <h5 class="text-muted text-uppercase fw-bold mb-1">До сплати</h5>
+          <h1 class="display-3 text-success fw-bold mb-0">
+            <span id="total-amount-display">0.00</span> ₴
+          </h1>
+        </div>
+
+        <div class="border-top pt-3 mt-auto">
+          <div class="d-flex justify-content-between text-muted mb-2 fs-5">
+            <span>Позицій у чеку:</span>
+            <span id="total-items-count" class="fw-bold text-dark">0</span>
+          </div>
+
+          <div
+            class="d-flex justify-content-between align-items-center mb-4 fs-5"
+          >
+            <span id="bonus-text-label" class="text-muted"
+              ><i class="bi bi-info-circle"></i> Потенційні бонуси:</span
+            >
+            <span
+              id="bonus-value-wrapper"
+              class="badge bg-secondary text-white rounded-pill px-3 py-2 fs-6"
+            >
+              +<span id="expected-bonuses-display">0.00</span> ₴
+            </span>
+          </div>
+
+          <button
+            class="btn btn-success btn-lg w-100 py-3 fs-3 fw-bold shadow"
+            id="checkout-btn"
+            disabled
+            onclick="openPaymentModal()"
+          >
+            <i class="bi bi-cash-coin"></i> ОПЛАТИТИ [F11]
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-credit-card"></i> Розрахунок
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body p-4 bg-light">
+        <div class="text-center mb-4 bg-white p-3 rounded shadow-sm">
+          <p class="text-muted mb-1 text-uppercase fw-bold">До сплати</p>
+          <h1 class="fw-bold text-dark display-5 mb-0" id="modal-total-display">
+            0.00 ₴
+          </h1>
+        </div>
+
+        <label class="form-label fw-bold">Спосіб оплати:</label>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="paymentMethod"
+              id="pay-card"
+              value="Card"
+              checked
+            />
+            <label
+              class="btn btn-outline-primary w-100 py-3 fw-bold"
+              for="pay-card"
+            >
+              <i class="bi bi-credit-card-2-front fs-3 d-block mb-1"></i> Картка
+            </label>
+          </div>
+          <div class="col-6">
+            <input
+              type="radio"
+              class="btn-check"
+              name="paymentMethod"
+              id="pay-cash"
+              value="Cash"
+            />
+            <label
+              class="btn btn-outline-primary w-100 py-3 fw-bold"
+              for="pay-cash"
+            >
+              <i class="bi bi-cash fs-3 d-block mb-1"></i> Готівка
+            </label>
+          </div>
+        </div>
+
+        <div
+          id="cash-calculator"
+          style="display: none"
+          class="bg-white p-3 rounded shadow-sm border border-warning mb-3"
+        >
+          <label class="form-label fw-bold text-warning-emphasis"
+            >Отримано від клієнта (₴):</label
+          >
+          <input
+            type="number"
+            class="form-control form-control-lg text-end fs-4 fw-bold"
+            id="cash-received"
+            placeholder="0.00"
+            oninput="calculateChange()"
+          />
+          <div
+            class="d-flex justify-content-between mt-3 align-items-center border-top pt-2"
+          >
+            <span class="text-muted fw-bold text-uppercase">Решта:</span>
+            <span class="fs-3 fw-bold text-danger" id="cash-change"
+              >0.00 ₴</span
+            >
+          </div>
+        </div>
+
+        <div
+          id="modal-bonus-block"
+          style="display: none"
+          class="p-3 bg-white rounded shadow-sm border mb-2"
+        >
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="fw-bold text-dark d-block">Списати бонуси?</span>
+              <small class="text-muted"
+                >Доступно: <span id="modal-max-bonuses">0.00</span> ₴</small
+              >
+            </div>
+            <div style="width: 120px">
+              <input
+                type="number"
+                id="bonus-spend-input"
+                class="form-control text-end fw-bold"
+                value="0"
+                min="0"
+                oninput="validateBonusSpend()"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-white">
+        <button
+          type="button"
+          class="btn btn-secondary fw-bold"
+          data-bs-dismiss="modal"
+        >
+          Скасувати
+        </button>
+        <button
+          type="button"
+          class="btn btn-success btn-lg px-4 fw-bold shadow-sm"
+          id="confirm-payment-btn"
+          onclick="submitCheckout()"
+        >
+          Підтвердити [Enter]
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cart = [];
+  let currentCustomer = null;
+  let paymentModalObj = null;
+  let heldReceipt = null;
+
+  // Просто оголошуємо змінну, значення надамо після завантаження сторінки
+  let currentReceiptNumber = 1;
+
+  // Словник перекладу, щоб скрізь використовувати укр. одиниці
+  const uomUa = { Piece: "шт", Kilogram: "кг", Liter: "л" };
+  function getUomUa(uom) {
+    return uomUa[uom] || uom;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    paymentModalObj = new bootstrap.Modal(
+      document.getElementById("paymentModal"),
+    );
+
+    // Зчитуємо номер з HTML-атрибута (VS Code тепер не буде сваритися)
+    const receiptElement = document.getElementById("receipt-id");
+    currentReceiptNumber = parseInt(receiptElement.dataset.nextNumber) || 1;
+
+    updateClockAndReceiptInfo();
+    setInterval(updateClockAndReceiptInfo, 1000);
+
+    document
+      .querySelectorAll('input[name="paymentMethod"]')
+      .forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+          const cashCalc = document.getElementById("cash-calculator");
+          if (e.target.value === "Cash") {
+            cashCalc.style.display = "block";
+            document.getElementById("cash-received").focus();
+          } else {
+            cashCalc.style.display = "none";
+            document.getElementById("cash-received").value = "";
+          }
+          calculateChange();
+        });
+      });
+  });
+
+  // Годинник та встановлення послідовного номера чека
+  function updateClockAndReceiptInfo() {
+    document.getElementById("live-clock").innerText =
+      new Date().toLocaleTimeString("uk-UA");
+
+    // Форматуємо номер нулями спереду (наприклад: 00001, 00014)
+    const formattedNumber = String(currentReceiptNumber).padStart(5, "0");
+    document.getElementById("receipt-id").innerText = "#" + formattedNumber;
+  }
+
+  function generateNewReceiptId() {
+    // Збільшуємо номер на 1 для наступного чека
+    currentReceiptNumber++;
+    updateClockAndReceiptInfo();
+  }
+  // Обробка гарячих клавіш
+  document.addEventListener("keydown", (e) => {
+    // F11 - Оплатити
+    if (e.key === "F11") {
+      e.preventDefault();
+      if (!document.getElementById("checkout-btn").disabled) openPaymentModal();
+    }
+    // F9 - Відкласти
+    if (e.key === "F9") {
+      e.preventDefault();
+      if (!document.getElementById("hold-btn").disabled) holdReceipt();
+    }
+    // F2 - Фокус на сканері
+    if (e.key === "F2") {
+      e.preventDefault();
+      document.getElementById("barcode-input").focus();
+    }
+    // Enter у модальному вікні - Підтвердити
+    if (
+      e.key === "Enter" &&
+      document.getElementById("paymentModal").classList.contains("show")
+    ) {
+      e.preventDefault();
+      submitCheckout();
+    }
+  });
+
+  // Швидкий вибір з кнопок (емуляція сканера)
+  function triggerScan(barcode) {
+    document.getElementById("barcode-input").value = barcode;
+    handleBarcodeSubmit(new Event("submit"));
+  }
+
+  // Відкласти чек
+  function holdReceipt() {
+    if (cart.length === 0) return;
+    heldReceipt = { cart: [...cart], customer: currentCustomer };
+    cart = [];
+    currentCustomer = null;
+
+    document.getElementById("restore-btn").disabled = false;
+    document.getElementById("loyalty-input").value = "";
+    document.getElementById("loyalty-info").style.display = "none";
+
+    renderCart();
+    alert("Чек успішно відкладено!");
+  }
+
+  // Відновити чек
+  function restoreReceipt() {
+    if (!heldReceipt) return;
+
+    // Якщо поточний чек не порожній, пропонуємо його відкласти/видалити
+    if (cart.length > 0) {
+      if (!confirm("Поточний відкритий чек буде очищено. Продовжити?")) return;
+    }
+
+    cart = heldReceipt.cart;
+    currentCustomer = heldReceipt.customer;
+    heldReceipt = null;
+
+    document.getElementById("restore-btn").disabled = true;
+
+    if (currentCustomer) {
+      document.getElementById("loyalty-input").value = "Відновлено";
+      document.getElementById("loyalty-info").style.display = "block";
+      document.getElementById("client-bonuses").innerText =
+        currentCustomer.bonus_balance.toFixed(2);
+    }
+    renderCart();
+  }
+
+  // Калькулятор решти
+  function calculateChange() {
+    const total = parseFloat(
+      document.getElementById("total-amount-display").innerText,
+    );
+    const received =
+      parseFloat(document.getElementById("cash-received").value) || 0;
+    const changeEl = document.getElementById("cash-change");
+
+    const change = received - total;
+
+    if (change >= 0) {
+      changeEl.innerText = change.toFixed(2) + " ₴";
+      changeEl.classList.replace("text-danger", "text-success");
+    } else {
+      changeEl.innerText = "Замало коштів!";
+      changeEl.classList.replace("text-success", "text-danger");
+    }
+  }
+
+  async function handleBarcodeSubmit(event) {
+    if (event) event.preventDefault();
+    const barcodeInput = document.getElementById("barcode-input");
+    const barcode = barcodeInput.value.trim();
+
+    if (!barcode) return;
+
+    try {
+      // Кнопка Enter / Синя лупа робить запит на ТОЧНИЙ збіг штрих-коду
+      const response = await axios.get(`/api/products/scan/${barcode}`);
+      if (response.data.success) {
+        addProductToCart(response.data.product);
+        document.getElementById("search-results-dropdown").style.display =
+          "none";
+        barcodeInput.value = "";
+      }
+    } catch (error) {
+      // КРАСИВЕ ВІКОНЦЕ ЗАМІСТЬ СТАРОГО ALERT
+      Swal.fire({
+        icon: "warning",
+        title: "Увага",
+        text: "Товар з таким точним штрих-кодом не знайдено. Будь ласка, оберіть товар із випадаючого списку.",
+        confirmButtonColor: "#ffc107",
+        confirmButtonText: "Зрозуміло",
+      });
+    }
+
+    // Повертаємо фокус назад в інпут для продовження роботи
+    barcodeInput.focus();
+  }
+
+  function addProductToCart(product) {
+    const existingItem = cart.find((item) => item.id === product.id);
+    const uomStr = getUomUa(product.uom);
+
+    if (existingItem) {
+      const increment = product.is_weight ? 0.5 : 1.0;
+      if (existingItem.quantity + increment > product.available_stock) {
+        // КРАСИВЕ ПОВІДОМЛЕННЯ
+        Swal.fire({
+          icon: "warning",
+          title: "Увага!",
+          text: `Перевищено доступний залишок! На складі: ${product.available_stock} ${uomStr}`,
+          confirmButtonColor: "#198754",
+        });
+        return;
+      }
+      existingItem.quantity += increment;
+    } else {
+      // ... додавання нового товару залишається як було ...
+      cart.push({
+        id: product.id,
+        barcode: product.barcode,
+        name: product.name,
+        price: product.price,
+        quantity: product.is_weight ? 0.5 : 1.0,
+        uom: product.uom,
+        is_weight: product.is_weight,
+        available_stock: product.available_stock,
+      });
+    }
+    renderCart();
+  }
+
+  function updateQuantity(productId, newQty) {
+    const item = cart.find((item) => item.id === productId);
+    if (!item) return;
+
+    let qty = parseFloat(newQty);
+    if (isNaN(qty) || qty <= 0) qty = item.is_weight ? 0.1 : 1; // Захист від від'ємних чисел
+
+    if (qty > item.available_stock) {
+      Swal.fire({
+        icon: "warning",
+        title: "Перевищення!",
+        text: `Доступно лише: ${item.available_stock} ${getUomUa(item.uom)}`,
+        confirmButtonColor: "#198754",
+      });
+      item.quantity = item.available_stock;
+    } else {
+      item.quantity = qty;
+    }
+    renderCart();
+  }
+
+  function removeItem(productId) {
+    const item = cart.find((i) => i.id === productId);
+    if (!item) return;
+
+    // КРАСИВЕ ПІДТВЕРДЖЕННЯ
+    Swal.fire({
+      title: "Видалити позицію?",
+      text: `Ви дійсно хочете прибрати "${item.name}" з чека?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Так, видалити",
+      cancelButtonText: "Скасувати",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        cart = cart.filter((i) => i.id !== productId);
+        renderCart();
+      }
+    });
+  }
+
+  function renderCart() {
+    const tbody = document.getElementById("cart-items");
+    const emptyMsg = document.getElementById("empty-cart-message");
+    const checkoutBtn = document.getElementById("checkout-btn");
+
+    tbody.innerHTML = "";
+
+    if (cart.length === 0) {
+      emptyMsg.style.display = "block";
+      checkoutBtn.disabled = true;
+
+      document.getElementById("total-amount-display").innerText = "0.00";
+      document.getElementById("total-items-count").innerText = "0";
+      document.getElementById("expected-bonuses-display").innerText = "0.00";
+      return;
+    }
+
+    emptyMsg.style.display = "none";
+    checkoutBtn.disabled = false;
+
+    let totalAmount = 0;
+
+    // Словник для перекладу одиниць вимірювання
+    // const uomUa = {
+    //   Piece: "шт",
+    //   Kilogram: "кг",
+    //   Liter: "л",
+    // };
+
+    cart.forEach((item) => {
+      const itemSum = item.quantity * item.price;
+      totalAmount += itemSum;
+
+      // Перекладаємо одиницю виміру (якщо не знайдено, залишаємо як є)
+      const uomTranslated = uomUa[item.uom] || item.uom;
+
+      tbody.innerHTML += `
+        <tr>
+            <td class="text-muted small">${item.barcode}</td>
+            <td class="fw-bold text-dark">${item.name}</td>
+            <td class="text-center">
+                <input type="number" class="form-control form-control-sm text-center fw-bold qty-input"
+                       value="${item.quantity}"
+                       step="${item.is_weight ? "0.1" : "1"}"
+                       min="${item.is_weight ? "0.1" : "1"}"
+                       max="${item.available_stock}"
+                       onchange="updateQuantity('${item.id}', this.value)" style="width: 90px; margin: 0 auto;">
+                <small class="text-muted">${uomTranslated}</small>
+            </td>
+            <td class="text-end">${item.price.toFixed(2)} ₴</td>
+            <td class="text-end fw-bold text-primary">${itemSum.toFixed(2)} ₴</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-danger" onclick="removeItem('${item.id}')">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </td>
+        </tr>
+      `;
+    });
+
+    document.getElementById("total-amount-display").innerText =
+      totalAmount.toFixed(2);
+    document.getElementById("total-items-count").innerText = cart.length;
+
+    // Рахуємо бонуси завжди (1% від суми)
+    const expectedBonuses = totalAmount * 0.01;
+    document.getElementById("expected-bonuses-display").innerText =
+      expectedBonuses.toFixed(2);
+
+    // Візуальна зміна блоку бонусів
+    const bonusLabel = document.getElementById("bonus-text-label");
+    const bonusWrapper = document.getElementById("bonus-value-wrapper");
+
+    if (currentCustomer) {
+      // Якщо клієнта знайдено: Зелений бейдж і чіткий текст
+      bonusLabel.innerHTML = `<i class="bi bi-star-fill text-warning"></i> Буде нараховано:`;
+      bonusLabel.className = "fw-bold text-dark";
+      bonusWrapper.className =
+        "badge bg-success text-white rounded-pill px-2 py-1 fs-6";
+    } else {
+      // Якщо клієнта немає: Сірий бейдж і текст "Потенційні"
+      bonusLabel.innerHTML = `<i class="bi bi-info-circle"></i> Потенційні бонуси (з карткою):`;
+      bonusLabel.className = "text-muted";
+      bonusWrapper.className =
+        "badge bg-secondary text-light rounded-pill px-2 py-1";
+    }
+
+    // Оновлюємо калькулятор решти якщо модалка відкрита
+    calculateChange();
+  }
+
+  // --- ЛОГІКА КЛІЄНТІВ (ПОШУК, ВИБІР, СТВОРЕННЯ) ---
+  let customerSearchTimeout = null;
+
+  async function handleCustomerSearch(query) {
+    const dropdown = document.getElementById("customer-results-dropdown");
+
+    if (query.trim().length < 2) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    clearTimeout(customerSearchTimeout);
+    customerSearchTimeout = setTimeout(async () => {
+      try {
+        const response = await axios.get(
+          `/api/customers/search?q=${encodeURIComponent(query)}`,
+        );
+
+        dropdown.innerHTML = "";
+        if (response.data.success && response.data.customers.length > 0) {
+          response.data.customers.forEach((cust) => {
+            const li = document.createElement("li");
+            li.className =
+              "list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2";
+            li.style.cursor = "pointer";
+
+            // Дістаємо бонуси з приєднаної таблиці (якщо картки немає, показуємо 0)
+            const bonus = cust.LoyaltyCard
+              ? parseFloat(cust.LoyaltyCard.bonus_balance).toFixed(2)
+              : "0.00";
+
+            li.innerHTML = `
+              <div>
+                <span class="fw-bold text-dark d-block">${cust.first_name} ${cust.last_name || ""}</span>
+                <small class="text-muted"><i class="bi bi-telephone"></i> ${cust.phone || "Немає"}</small>
+              </div>
+              <span class="badge bg-success rounded-pill">${bonus} ₴</span>
+            `;
+
+            li.onmousedown = (e) => {
+              e.preventDefault();
+              selectCustomer(cust);
+            };
+            dropdown.appendChild(li);
+          });
+        } else {
+          dropdown.innerHTML = `<li class="list-group-item text-muted text-center py-2 small">Клієнта не знайдено</li>`;
+        }
+        dropdown.style.display = "block";
+      } catch (error) {
+        console.error("Помилка пошуку клієнта:", error);
+      }
+    }, 300);
+  }
+
+  function selectCustomer(customer) {
+    currentCustomer = customer;
+
+    document.getElementById("customer-search-group").style.display = "none";
+    document.getElementById("customer-results-dropdown").style.display = "none";
+
+    // Дістаємо бонуси для відображення у віджеті
+    const bonus = customer.LoyaltyCard
+      ? parseFloat(customer.LoyaltyCard.bonus_balance).toFixed(2)
+      : "0.00";
+
+    document.getElementById("loyalty-info").style.display = "block";
+    document.getElementById("client-name-display").innerText =
+      `${customer.first_name} ${customer.last_name || ""}`;
+    document.getElementById("client-phone-display").innerText =
+      customer.phone || "Телефон не вказано";
+    document.getElementById("client-bonuses").innerText = `${bonus} ₴`;
+
+    renderCart();
+    document.getElementById("barcode-input").focus();
+  }
+
+  // Підтвердження перед видаленням клієнта з чека
+  function confirmRemoveCustomer() {
+    Swal.fire({
+      title: "Прибрати картку?",
+      text: "Ви дійсно хочете прибрати клієнта з поточного чека?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Так, прибрати",
+      cancelButtonText: "Скасувати",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        clearCustomerInput(); // Якщо касир натиснув "Так", видаляємо
+      }
+    });
+  }
+
+  // Очищення (видалення клієнта з чека)
+  function clearCustomerInput() {
+    currentCustomer = null;
+
+    // Показуємо інпут, ховаємо віджет
+    document.getElementById("loyalty-info").style.display = "none";
+    document.getElementById("customer-search-group").style.display = "flex";
+
+    const input = document.getElementById("loyalty-input");
+    input.value = "";
+    input.focus();
+
+    document.getElementById("customer-results-dropdown").style.display = "none";
+    renderCart();
+  }
+
+  // Створення нового клієнта
+  async function submitNewCustomer() {
+    const first_name = document.getElementById("new-cust-first").value.trim();
+    const last_name = document.getElementById("new-cust-last").value.trim();
+    const phonePart = document.getElementById("new-cust-phone").value.trim(); // Тут тепер тільки 9 цифр
+
+    // 1. Перевірка на порожні поля
+    if (!first_name || !last_name || !phonePart) {
+      Swal.fire({
+        icon: "warning",
+        title: "Увага",
+        text: "Усі поля є обов'язковими для заповнення!",
+        showConfirmButton: false,
+        showCloseButton: true,
+      });
+      return;
+    }
+
+    // 2. Валідація телефону (рівно 9 цифр)
+    if (phonePart.length !== 9) {
+      Swal.fire({
+        icon: "warning",
+        title: "Невірний формат",
+        text: "Номер телефону має містити рівно 9 цифр (після +380).",
+        showConfirmButton: false,
+        showCloseButton: true,
+      });
+      return;
+    }
+
+    // 3. Формуємо повний номер для бази даних
+    const fullPhone = "+380" + phonePart;
+
+    try {
+      // Відправляємо на сервер fullPhone замість phonePart
+      const response = await axios.post("/api/customers", {
+        first_name,
+        last_name,
+        phone: fullPhone,
+      });
+      if (response.data.success) {
+        // Ховаємо модалку (використовуємо Bootstrap API)
+        const modalEl = document.getElementById("newCustomerModal");
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        // Очищаємо форму для наступного разу
+        document.getElementById("new-cust-first").value = "";
+        document.getElementById("new-cust-last").value = "";
+        document.getElementById("new-cust-phone").value = "";
+
+        // Автоматично вибираємо цього нового клієнта в чек
+        selectCustomer(response.data.customer);
+
+        Swal.fire({
+          icon: "success",
+          title: "Клієнта створено!",
+          text: "Картку автоматично додано до чека.",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Помилка",
+        text: "Не вдалося створити клієнта.",
+        showConfirmButton: false,
+        showCloseButton: true,
+      });
+    }
+  }
+
+  // Ховаємо випадаючий список при кліку повз нього (додаємо до існуючого слухача)
+  document.addEventListener("click", (e) => {
+    // Для товарів (уже було)
+    if (
+      !e.target.closest("#barcode-form") &&
+      !e.target.closest("#search-results-dropdown")
+    ) {
+      const dropProd = document.getElementById("search-results-dropdown");
+      if (dropProd) dropProd.style.display = "none";
+    }
+    // Для клієнтів (нове)
+    if (
+      !e.target.closest("#customer-search-group") &&
+      !e.target.closest("#customer-results-dropdown")
+    ) {
+      const dropCust = document.getElementById("customer-results-dropdown");
+      if (dropCust) dropCust.style.display = "none";
+    }
+  });
+
+  function openPaymentModal() {
+    const total = parseFloat(
+      document.getElementById("total-amount-display").innerText,
+    );
+    document.getElementById("modal-total-display").innerText =
+      `${total.toFixed(2)} ₴`;
+
+    const bonusBlock = document.getElementById("modal-bonus-block");
+    if (currentCustomer) {
+      bonusBlock.style.display = "block";
+      document.getElementById("modal-max-bonuses").innerText =
+        currentCustomer.bonus_balance.toFixed(2);
+      document.getElementById("bonus-spend-input").max = Math.min(
+        currentCustomer.bonus_balance,
+        total,
+      );
+    } else {
+      bonusBlock.style.display = "none";
+    }
+
+    // Скидаємо калькулятор
+    document.getElementById("cash-received").value = "";
+    calculateChange();
+
+    paymentModalObj.show();
+  }
+
+  function validateBonusSpend() {
+    const input = document.getElementById("bonus-spend-input");
+    const total = parseFloat(
+      document.getElementById("total-amount-display").innerText,
+    );
+    let val = parseFloat(input.value) || 0;
+
+    const maxAvailable = currentCustomer ? currentCustomer.bonus_balance : 0;
+    const maxAllowed = Math.min(maxAvailable, total);
+
+    if (val > maxAllowed) input.value = maxAllowed;
+    if (val < 0) input.value = 0;
+  }
+
+  async function submitCheckout() {
+    // Виправлений баг селектора:
+    const paymentMethod =
+      document.querySelector('input[name="paymentMethod"]:checked')?.value ||
+      "Card";
+    const bonusSpent = currentCustomer
+      ? parseFloat(document.getElementById("bonus-spend-input").value) || 0
+      : 0;
+
+    // Перевірка калькулятора решти
+    if (paymentMethod === "Cash") {
+      const received =
+        parseFloat(document.getElementById("cash-received").value) || 0;
+      const total =
+        parseFloat(document.getElementById("total-amount-display").innerText) -
+        bonusSpent;
+      if (received < total) {
+        alert("Клієнт дав недостатньо готівки!");
+        return;
+      }
+    }
+
+    const payload = {
+      items: cart,
+      customer_id: currentCustomer ? currentCustomer.id : null,
+      payment_method: paymentMethod,
+      bonus_spent: bonusSpent,
+      shift_id: "a2222222-0000-0000-0000-000000000003",
+    };
+
+    try {
+      const response = await axios.post("/api/pos/checkout", payload);
+      if (response.data.success) {
+        paymentModalObj.hide();
+        generateNewReceiptId(); // Оновлюємо номер для наступного чека
+        Swal.fire({
+          icon: "success",
+          title: "Успішно!",
+          text: `${response.data.message} Фіскальний номер: ${response.data.fiscal_number}`,
+          confirmButtonColor: "#198754",
+        });
+
+        cart = [];
+        currentCustomer = null;
+        clearCustomerInput();
+        document.getElementById("loyalty-info").style.display = "none";
+
+        // Скидаємо перемикач на Картку за замовчуванням для нового чека
+        document.getElementById("pay-card").checked = true;
+        document.getElementById("cash-calculator").style.display = "none";
+
+        renderCart();
+      }
+    } catch (error) {
+      alert(
+        "Помилка фіскалізації: " +
+          (error.response?.data?.message || error.message),
+      );
+    }
+  }
+
+  // --- ЖИВИЙ ПОШУК ЗА НАЗВОЮ ---
+  let searchTimeout = null;
+
+  async function handleSearchInput(query) {
+    const dropdown = document.getElementById("search-results-dropdown");
+
+    // Якщо введено менше 2 символів — ховаємо список
+    if (query.trim().length < 2) {
+      dropdown.style.display = "none";
+      return;
+    }
+
+    // Використовуємо debounce (затримку), щоб не спамити сервер запитами на кожну літеру
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+      try {
+        const response = await axios.get(
+          `/api/products/search?q=${encodeURIComponent(query)}`,
+        );
+        if (response.data.success && response.data.products.length > 0) {
+          renderSearchResults(response.data.products);
+        } else {
+          // ВЛАСНЕ ПОВІДОМЛЕННЯ ПРЯМО У ВИПАДАЮЧОМУ СПИСКУ
+          dropdown.innerHTML = `
+                    <li class="list-group-item text-muted text-center py-3 bg-light">
+                        <i class="bi bi-search fs-4 d-block mb-1"></i>
+                        Товар не знайдено
+                    </li>`;
+          dropdown.style.display = "block";
+        }
+      } catch (error) {
+        console.error("Помилка живого пошуку:", error);
+      }
+    }, 300); // Чекаємо 300 мілісекунд після того, як касир перестав друкувати
+  }
+
+  function clearSearchInput() {
+    const input = document.getElementById("barcode-input");
+    input.value = ""; // Стираємо текст
+    document.getElementById("search-results-dropdown").style.display = "none"; // Ховаємо список
+    input.focus(); // Повертаємо курсор назад, щоб касир міг одразу сканувати далі
+  }
+
+  function renderSearchResults(products) {
+    const dropdown = document.getElementById("search-results-dropdown");
+    dropdown.innerHTML = ""; // Очищаємо старі результати
+
+    products.forEach((prod) => {
+      const li = document.createElement("li");
+      li.className =
+        "list-group-item list-group-item-action d-flex justify-content-between align-items-center";
+      li.style.cursor = "pointer";
+      // Малюємо рядок товару
+      li.innerHTML = `
+            <div>
+                <span class="fw-bold text-dark">${prod.name}</span><br>
+                <small class="text-muted"><i class="bi bi-upc"></i> ${prod.barcode} | Залишок: <span class="fw-bold">${prod.available_stock}</span> ${getUomUa(prod.uom)}</small>
+            </div>
+            <span class="badge bg-success rounded-pill fs-6">${prod.price.toFixed(2)} ₴</span>
+        `;
+
+      // Клік по товару зі списку додає його в кошик
+      li.onclick = () => {
+        addProductToCart(prod);
+        document.getElementById("barcode-input").value = "";
+        dropdown.style.display = "none";
+        document.getElementById("barcode-input").focus();
+      };
+
+      dropdown.appendChild(li);
+    });
+
+    dropdown.style.display = "block"; // Показуємо список
+  }
+
+  // Приховуємо список, якщо касир клікнув десь в іншому місці екрана
+  document.addEventListener("click", (e) => {
+    if (
+      !e.target.closest("#barcode-form") &&
+      !e.target.closest("#search-results-dropdown")
+    ) {
+      document.getElementById("search-results-dropdown").style.display = "none";
+    }
+  });
+  // ------------------------------
+</script>
+
+<%- include('../partials/footer') %>

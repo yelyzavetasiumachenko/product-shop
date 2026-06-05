@@ -1,0 +1,98 @@
+<%- include('../partials/header') %>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container mt-4">
+    <h2 class="mb-4">Панель Директора</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-success shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Виторг за сьогодні</h5>
+                    <h2 class="fw-bold"><%= kpi.todayRevenue %> ₴</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-primary shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Кількість чеків</h5>
+                    <h2 class="fw-bold"><%= kpi.totalChecks %></h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-dark bg-warning shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Товарів на карантині</h5>
+                    <h2 class="fw-bold"><%= kpi.quarantineItems %> партій</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Динаміка продажів (Тиждень)</h5>
+                    <canvas id="revenueChart" 
+                            data-labels="<%= JSON.stringify(chartLabels) %>" 
+                            data-values="<%= JSON.stringify(chartData) %>">
+                    </canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">ТОП-3 товари</h5>
+                    <ol class="list-group list-group-numbered mt-3">
+                        <% topProducts.forEach(product => { %>
+                            <li class="list-group-item d-flex justify-content-between align-items-start">
+                                <div class="ms-2 me-auto fw-bold"><%= product.name %></div>
+                                <span class="badge bg-primary rounded-pill"><%= product.sold_qty %> шт</span>
+                            </li>
+                        <% }); %>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Зчитуємо елемент canvas
+    const chartCanvas = document.getElementById('revenueChart');
+    
+    // Чистий парсинг даних з HTML атрибутів без змішування синтаксису EJS та JS
+    const labelsArray = JSON.parse(chartCanvas.dataset.labels);
+    const dataArray = JSON.parse(chartCanvas.dataset.values);
+
+    // Ініціалізація графіка Chart.js
+    const ctx = chartCanvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labelsArray,
+            datasets: [{
+                label: 'Виторг (ГРН)',
+                data: dataArray,
+                borderColor: '#198754',
+                tension: 0.3,
+                fill: true,
+                backgroundColor: 'rgba(25, 135, 84, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+</script>
+
+<%- include('../partials/footer') %>
