@@ -88,76 +88,118 @@ exports.getDashboard = (req, res) => {
 };
 
 // API для отримання статистики (Сирі SQL запити)
-exports.getDashboardStats = async (req, res) => {
+// 1. Отримання денних метрик (Верхні картки)
+exports.getDailyStats = async (req, res) => {
   try {
-    // 1. Виторг та кількість чеків за сьогодні
+    const selectedDate = req.query.date;
+
+    // Запит тільки для продажів (Виторг, Кількість чеків, Середній чек)
     const [dailyStats] = await sequelize.query(
       `
             SELECT 
                 COUNT(id) AS total_receipts,
-                COALESCE(SUM(total_amount), 0) AS total_revenue
+                COALESCE(SUM(total_amount), 0) AS total_revenue,
+                COALESCE(AVG(total_amount), 0) AS avg_receipt
             FROM sales 
-            WHERE DATE(sale_date) = CURRENT_DATE;
+            WHERE DATE(sale_date) = :date;
         `,
-      { type: sequelize.QueryTypes.SELECT },
+      {
+        replacements: { date: selectedDate },
+        type: sequelize.QueryTypes.SELECT,
+      },
     );
 
-    // 2. Товарів на карантині (протерміновані або списані)
-    const [quarantineStats] = await sequelize.query(
-      `
-            SELECT COUNT(id) AS quarantine_count
-            FROM batches
-            WHERE status IN ('Expired', 'Disposed') OR expiry_date < CURRENT_DATE;
-        `,
-      { type: sequelize.QueryTypes.SELECT },
-    );
+    res.json({
+      success: true,
+      revenue: parseFloat(dailyStats?.total_revenue || 0).toFixed(2),
+      receipts: dailyStats?.total_receipts || 0,
+      avgReceipt: parseFloat(dailyStats?.avg_receipt || 0).toFixed(2),
+    });
+  } catch (error) {
+    console.error("Помилка денної статистики:", error);
+    res.status(500).json({ success: false, message: "Помилка БД" });
+  }
+};
 
-    // 3. Динаміка продажів за останні 7 днів (для графіка)
-    const weeklySales = await sequelize.query(
+// 2. Отримання статистики за період (Графік та ТОП-3)
+exports.getPeriodStats = async (req, res) => {
+  try {
+    const { start, end } = req.query;
+
+    // Дані для графіка (групуємо по днях у межах періоду)
+    const chartData = await sequelize.query(
       `
             SELECT 
                 TO_CHAR(sale_date, 'DD.MM') AS sale_day,
                 COALESCE(SUM(total_amount), 0) AS daily_revenue
             FROM sales
-            WHERE sale_date >= CURRENT_DATE - INTERVAL '6 days'
+            WHERE DATE(sale_date) >= :start AND DATE(sale_date) <= :end
             GROUP BY DATE(sale_date), TO_CHAR(sale_date, 'DD.MM')
             ORDER BY DATE(sale_date) ASC;
         `,
-      { type: sequelize.QueryTypes.SELECT },
+      {
+        replacements: { start: start, end: end },
+        type: sequelize.QueryTypes.SELECT,
+      },
     );
 
-    // 4. ТОП-3 товари (JOIN трьох таблиць)
     const topProducts = await sequelize.query(
       `
             SELECT 
                 p.name AS product_name,
-                SUM(si.quantity_sold) AS total_sold
+                CASE p.uom
+                    WHEN 'Kilogram' THEN 'кг'
+                    WHEN 'Liter' THEN 'л'
+                    WHEN 'Piece' THEN 'шт'
+                    ELSE 'шт' 
+                END AS product_unit,
+                SUM(si.quantity_sold) AS total_sold 
             FROM sale_items si
+            JOIN sales s ON si.sale_id = s.id
             JOIN batches b ON si.batch_id = b.id
             JOIN products p ON b.product_id = p.id
-            GROUP BY p.name
+            WHERE DATE(s.sale_date) >= :start AND DATE(s.sale_date) <= :end
+            GROUP BY p.name, p.uom
             ORDER BY total_sold DESC
             LIMIT 3;
         `,
-      { type: sequelize.QueryTypes.SELECT },
+      {
+        replacements: { start: start, end: end },
+        type: sequelize.QueryTypes.SELECT,
+      },
     );
 
-    // Відправляємо зібрані дані на фронтенд
-    res.json({
-      success: true,
-      revenue: parseFloat(dailyStats.total_revenue).toFixed(2),
-      receipts: dailyStats.total_receipts,
-      quarantine: quarantineStats.quarantine_count,
-      chartData: weeklySales,
-      topProducts: topProducts,
-    });
+    res.json({ success: true, chartData, topProducts });
   } catch (error) {
-    console.error("Помилка SQL Дашборду:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Помилка завантаження статистики" });
+    console.error("Помилка періодичної статистики:", error);
+    res.status(500).json({ success: false, message: "Помилка БД" });
   }
 };
+
+// 3. Отримання детального списку товарів на карантині (Для модального вікна)
+// exports.getQuarantineDetails = async (req, res) => {
+//   try {
+//     const items = await sequelize.query(
+//       `
+//             SELECT
+//                 p.name AS product_name,
+//                 p.barcode,
+//                 b.quantity,
+//                 'Перебуває на карантині' AS reason
+//             FROM batches b
+//             JOIN products p ON b.product_id = p.id
+//             WHERE b.status = 'Quarantine'
+//             ORDER BY p.name ASC;
+//         `,
+//       { type: sequelize.QueryTypes.SELECT },
+//     );
+
+//     res.json({ success: true, items });
+//   } catch (error) {
+//     console.error("Помилка завантаження карантину:", error);
+//     res.status(500).json({ success: false, message: "Помилка БД" });
+//   }
+// };
 
 // Сторінка "Персонал та Каси" (Історія змін)
 exports.getStaffPage = async (req, res) => {

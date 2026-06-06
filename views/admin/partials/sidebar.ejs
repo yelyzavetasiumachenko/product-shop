@@ -5,23 +5,39 @@
     <small class="text-muted">Панель Директора</small>
   </div>
 
-  <div class="mt-3 flex-grow-1">
-    <a href="/admin" class="active"
-      ><i class="bi bi-bar-chart-fill me-2"></i> Дашборд</a
+  <div class="mt-3 flex-grow-1" id="sidebar-menu">
+    <a href="/admin" class="d-block p-3 text-decoration-none text-white-50">
+      <i class="bi bi-bar-chart-fill me-2"></i> Дашборд
+    </a>
+    <a href="/warehouse" class="d-block p-3 text-decoration-none text-white-50">
+      <i class="bi bi-box-seam me-2"></i> Склад
+    </a>
+    <a
+      href="/admin/staff"
+      class="d-block p-3 text-decoration-none text-white-50"
     >
-    <a href="/warehouse"><i class="bi bi-box-seam me-2"></i> Склад</a>
-    <a href="/admin/staff"
-      ><i class="bi bi-people-fill me-2"></i> Персонал та Каси</a
+      <i class="bi bi-people-fill me-2"></i> Персонал та каси
+    </a>
+    <a
+      href="/admin/clients"
+      class="d-block p-3 text-decoration-none text-white-50"
     >
-    <a href="/admin/clients"
-      ><i class="bi bi-credit-card-2-front-fill me-2"></i> Клієнти (CRM)</a
-    >
+      <i class="bi bi-credit-card-2-front-fill me-2"></i> Клієнти
+    </a>
   </div>
 
   <div class="p-3 border-top border-secondary text-center">
-    <span class="d-block text-muted mb-2 small" id="admin-name-display"
-      >Завантаження...</span
-    >
+    <div class="d-flex align-items-center text-white mb-3 px-2">
+      <i class="bi bi-person-circle fs-3 me-2 text-primary"></i>
+      <div class="lh-sm text-start">
+        <span class="d-block text-white-50" style="font-size: 0.75rem"
+          >Користувач:</span
+        >
+        <strong class="text-white" id="admin-name-display"
+          >Завантаження...</strong
+        >
+      </div>
+    </div>
     <button
       class="btn btn-outline-danger btn-sm w-100 fw-bold"
       onclick="logoutAdmin()"
@@ -32,12 +48,67 @@
 </div>
 
 <script>
-  // Вивід імені адміна
-  document.getElementById("admin-name-display").innerText =
-    localStorage.getItem("cashier_name") || "Директор";
-
+  // 1. ФУНКЦІЯ ВИХОДУ З ПІДТВЕРДЖЕННЯМ
   function logoutAdmin() {
-    localStorage.clear();
-    window.location.href = "/login";
+    // Перевіряємо, чи підключена бібліотека SweetAlert2 для красивих повідомлень
+    if (typeof Swal !== "undefined") {
+      Swal.fire({
+        title: "Вихід із системи",
+        text: "Ви дійсно хочете завершити сеанс адміністратора?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Так, вийти",
+        cancelButtonText: "Скасувати",
+      }).then((result) => {
+        if (result.isConfirmed) {
+          localStorage.clear();
+          window.location.href = "/login";
+        }
+      });
+    } else {
+      // Стандартне вікно, якщо Swal немає
+      if (confirm("Ви дійсно хочете завершити сеанс адміністратора?")) {
+        localStorage.clear();
+        window.location.href = "/login";
+      }
+    }
   }
+
+  // 2. ПІДСВІЧУВАННЯ АКТИВНОГО МЕНЮ
+  document.addEventListener("DOMContentLoaded", () => {
+    const savedUser = localStorage.getItem("cashier_name");
+    const nameDisplay = document.getElementById("admin-name-display");
+
+    if (savedUser) {
+      // Оскільки це просто текст, відразу виводимо його
+      nameDisplay.innerText = savedUser;
+    } else {
+      nameDisplay.innerText = "Адміністратор"; // Запасний варіант
+    }
+
+    const currentUrl = window.location.pathname;
+
+    // Шукаємо всі посилання (теги <a>) всередині блоку з меню
+    const sidebarLinks = document.querySelectorAll("#sidebar-menu a");
+
+    sidebarLinks.forEach((link) => {
+      // Порівнюємо посилання з поточною адресою
+      if (link.getAttribute("href") === currentUrl) {
+        // Робимо активне посилання синім
+        link.classList.add("bg-primary", "text-white", "shadow-sm", "rounded");
+        link.classList.remove("text-white-50");
+      } else {
+        // Усі інші посилання робимо звичайними
+        link.classList.remove(
+          "bg-primary",
+          "text-white",
+          "shadow-sm",
+          "rounded",
+        );
+        link.classList.add("text-white-50");
+      }
+    });
+  });
 </script>

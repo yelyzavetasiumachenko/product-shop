@@ -2,18 +2,60 @@
 
 <div class="main-content">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold text-dark">Панель Директора</h2>
+    <h2 class="fw-bold text-dark">Статистика магазину</h2>
     <div class="text-muted">
       <i class="bi bi-calendar3"></i> <span id="current-date"></span>
     </div>
   </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0 text-secondary fw-bold">Метрики за день</h5>
+    <div
+      class="d-flex align-items-center bg-white p-2 rounded shadow-sm border"
+    >
+      <label class="text-muted small me-2 mb-0 fw-bold">Дата:</label>
+      <input
+        type="date"
+        id="filter-single-date"
+        class="form-control form-control-sm border-0 me-2"
+        style="background: #f8f9fa"
+      />
+
+      <button
+        class="btn btn-sm btn-primary fw-bold"
+        onclick="updateDailyStats()"
+      >
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- <div class="row mb-4 align-items-end bg-white p-3 rounded shadow-sm mx-0">
+    <div class="col-md-3">
+      <label class="form-label text-muted small fw-bold mb-1"
+        >Початкова дата</label
+      >
+      <input type="date" id="filter-start" class="form-control" />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label text-muted small fw-bold mb-1"
+        >Кінцева дата</label
+      >
+      <input type="date" id="filter-end" class="form-control" />
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary w-100 fw-bold" onclick="applyDateFilter()">
+        <i class="bi bi-funnel"></i> Застосувати
+      </button>
+    </div>
+  </div> -->
 
   <div class="row g-4 mb-4">
     <div class="col-md-4">
       <div class="card bg-success text-white border-0 shadow-sm h-100">
         <div class="card-body p-4">
           <h6 class="text-uppercase fw-bold opacity-75 mb-3">
-            Виторг за сьогодні
+            Загальна сума виторгу
           </h6>
           <h1 class="display-5 fw-bold mb-0" id="dash-revenue">0.00 ₴</h1>
         </div>
@@ -29,7 +71,7 @@
         </div>
       </div>
     </div>
-    <div class="col-md-4">
+    <!-- <div class="col-md-4">
       <div class="card bg-warning text-dark border-0 shadow-sm h-100">
         <div class="card-body p-4">
           <h6 class="text-uppercase fw-bold opacity-75 mb-3">
@@ -38,102 +80,273 @@
           <h1 class="display-5 fw-bold mb-0" id="dash-quarantine">0 партій</h1>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="row g-4">
-    <div class="col-md-8">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body p-4">
-          <h5 class="fw-bold mb-4">Динаміка продажів (Останні 7 днів)</h5>
-          <canvas id="salesChart" height="120"></canvas>
-        </div>
-      </div>
-    </div>
-
+    </div> -->
     <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100">
+      <div class="card bg-warning text-dark border-0 shadow-sm h-100">
         <div class="card-body p-4">
-          <h5 class="fw-bold mb-4">ТОП-3 товари</h5>
-          <ul class="list-group list-group-flush" id="top-products-list">
-            <li class="list-group-item text-muted text-center py-4">
-              Завантаження...
-            </li>
-          </ul>
+          <h6 class="text-uppercase fw-bold opacity-75 mb-3">Середній чек</h6>
+          <h2 class="display-6 fw-bold mb-0" id="dash-avg-receipt">0.00 ₴</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+      <h5 class="mb-0 text-secondary fw-bold">Аналітика продажів</h5>
+      <div
+        class="d-flex align-items-center bg-white p-2 rounded shadow-sm border"
+      >
+        <input
+          type="date"
+          id="filter-start"
+          class="form-control form-control-sm border-0"
+          style="background: #f8f9fa"
+        />
+        <span class="mx-2 text-muted fw-bold">-</span>
+        <input
+          type="date"
+          id="filter-end"
+          class="form-control form-control-sm border-0 me-3"
+          style="background: #f8f9fa"
+        />
+        <button
+          class="btn btn-sm btn-primary fw-bold px-3"
+          onclick="updatePeriodStats()"
+        >
+          <i class="bi bi-funnel"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-8">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4">
+            <h5 class="fw-bold mb-4">Динаміка продажів</h5>
+            <canvas id="salesChart" height="120"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4">
+            <h5 class="fw-bold mb-4">ТОП-3 товари</h5>
+            <ul class="list-group list-group-flush" id="top-products-list">
+              <li class="list-group-item text-muted text-center py-4">
+                Завантаження...
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<script>
-  document.getElementById("current-date").innerText =
-    new Date().toLocaleDateString("uk-UA");
+  <div class="modal fade" id="quarantineModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header bg-warning border-0">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-exclamation-triangle"></i> Деталі карантину
+          </h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body p-0">
+          <div
+            class="table-responsive"
+            style="max-height: 400px; overflow-y: auto"
+          >
+            <table class="table table-hover mb-0 align-middle">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>Товар</th>
+                  <th>Партія (Штрих-код)</th>
+                  <th>Кількість</th>
+                  <th>Причина</th>
+                </tr>
+              </thead>
+              <tbody id="quarantine-list-body">
+                <tr>
+                  <td colspan="4" class="text-center py-4 text-muted">
+                    Завантаження...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  async function loadDashboardStats() {
-    try {
-      const response = await axios.get("/api/admin/dashboard-stats");
-      const data = response.data;
+  <script>
+    // 1. Глобальна змінна для графіка (щоб ми могли його видаляти перед малюванням нового)
+    let salesChartInstance = null;
 
-      if (data.success) {
-        // Оновлюємо картки
-        document.getElementById("dash-revenue").innerText = `${data.revenue} ₴`;
-        document.getElementById("dash-receipts").innerText = data.receipts;
-        document.getElementById("dash-quarantine").innerText =
-          `${data.quarantine} партій`;
+    // 2. Встановлюємо дати за замовчуванням при завантаженні сторінки
+    document.addEventListener("DOMContentLoaded", () => {
+      // Вивід дати в шапці праворуч
+      document.getElementById("current-date").innerText =
+        new Date().toLocaleDateString("uk-UA");
 
-        // Оновлюємо ТОП-3
-        const topList = document.getElementById("top-products-list");
-        topList.innerHTML = "";
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0]; // Формат YYYY-MM-DD
 
-        if (data.topProducts.length === 0) {
-          topList.innerHTML =
-            '<li class="list-group-item text-muted">Немає продажів</li>';
-        } else {
-          data.topProducts.forEach((prod, index) => {
-            topList.innerHTML += `
+      // Віднімаємо 7 днів для початкової дати графіка
+      const lastWeek = new Date(today);
+      lastWeek.setDate(today.getDate() - 7);
+      const lastWeekStr = lastWeek.toISOString().split("T")[0];
+
+      // Заповнюємо HTML-поля
+      document.getElementById("filter-single-date").value = todayStr;
+      document.getElementById("filter-start").value = lastWeekStr;
+      document.getElementById("filter-end").value = todayStr;
+
+      document
+        .getElementById("filter-single-date")
+        .setAttribute("max", todayStr);
+      document.getElementById("filter-start").setAttribute("max", todayStr);
+      document.getElementById("filter-end").setAttribute("max", todayStr);
+
+      // Одразу завантажуємо дані при відкритті
+      updateDailyStats();
+      updatePeriodStats();
+    });
+
+    // 3. Зона 1: Оновлення денних метрик (Виторг, Чеки, Карантин)
+    async function updateDailyStats() {
+      const selectedDate = document.getElementById("filter-single-date").value;
+
+      try {
+        // Звертаємося до нового API (яке ми створимо на бекенді в Кроці 2)
+        const response = await axios.get(
+          `/api/admin/stats/daily?date=${selectedDate}`,
+        );
+        const data = response.data;
+
+        if (data.success) {
+          document.getElementById("dash-revenue").innerText =
+            `${data.revenue} ₴`;
+          document.getElementById("dash-receipts").innerText = data.receipts;
+          document.getElementById("dash-avg-receipt").innerText =
+            `${data.avgReceipt} ₴`;
+        }
+      } catch (error) {
+        console.error("Помилка денної статистики:", error);
+      }
+    }
+
+    // 4. Зона 2: Оновлення графіка та ТОП-товарів за період
+    async function updatePeriodStats() {
+      const startDate = document.getElementById("filter-start").value;
+      const endDate = document.getElementById("filter-end").value;
+
+      try {
+        const response = await axios.get(
+          `/api/admin/stats/period?start=${startDate}&end=${endDate}`,
+        );
+        const data = response.data;
+
+        if (data.success) {
+          // Оновлюємо ТОП-3
+          const topList = document.getElementById("top-products-list");
+          topList.innerHTML = "";
+
+          if (data.topProducts.length === 0) {
+            topList.innerHTML =
+              '<li class="list-group-item text-muted text-center py-4">Немає продажів у цей період</li>';
+          } else {
+            data.topProducts.forEach((prod, index) => {
+              topList.innerHTML += `
                             <li class="list-group-item d-flex justify-content-between align-items-center py-3 px-0">
                                 <span><strong>${index + 1}.</strong> ${prod.product_name}</span>
-                                <span class="badge bg-primary rounded-pill">${prod.total_sold} шт</span>
+                                <span class="badge bg-primary rounded-pill">
+                                    ${parseFloat(prod.total_sold)} ${prod.product_unit || "шт"}
+                                </span>
                             </li>
                         `;
+            });
+          }
+
+          // Перемальовуємо графік
+          if (salesChartInstance) {
+            salesChartInstance.destroy(); // Знищуємо старий графік, щоб не було глітчів
+          }
+
+          const ctx = document.getElementById("salesChart").getContext("2d");
+          salesChartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: data.chartData.map((item) => item.sale_day),
+              datasets: [
+                {
+                  label: "Виторг (ГРН)",
+                  data: data.chartData.map((item) => item.daily_revenue),
+                  borderColor: "#0d6efd",
+                  backgroundColor: "rgba(13, 110, 253, 0.1)",
+                  borderWidth: 3,
+                  fill: true,
+                  tension: 0.3,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true } },
+            },
           });
         }
-
-        // Малюємо графік
-        const ctx = document.getElementById("salesChart").getContext("2d");
-        const labels = data.chartData.map((item) => item.sale_day);
-        const values = data.chartData.map((item) => item.daily_revenue);
-
-        new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: "Виторг (ГРН)",
-                data: values,
-                borderColor: "#0d6efd",
-                backgroundColor: "rgba(13, 110, 253, 0.1)",
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } },
-          },
-        });
+      } catch (error) {
+        console.error("Помилка періодичної статистики:", error);
       }
-    } catch (error) {
-      console.error("Помилка завантаження статистики", error);
     }
-  }
 
-  loadDashboardStats();
-</script>
+    // 5. Функція для відкриття модального вікна "Карантин"
+    async function openQuarantineModal() {
+      const modal = new bootstrap.Modal(
+        document.getElementById("quarantineModal"),
+      );
+      modal.show();
 
-<%- include('partials/footer') %>
+      const tbody = document.getElementById("quarantine-list-body");
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="text-center py-4 text-muted">Завантаження даних...</td></tr>';
+
+      try {
+        const response = await axios.get("/api/admin/stats/quarantine-details");
+        const data = response.data;
+
+        if (data.success) {
+          tbody.innerHTML = "";
+          if (data.items.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="text-center py-4 text-success fw-bold">Все чудово! Зіпсованих товарів немає.</td></tr>';
+          } else {
+            data.items.forEach((item) => {
+              tbody.innerHTML += `
+                            <tr>
+                                <td class="fw-bold">${item.product_name}</td>
+                                <td><span class="badge bg-light text-dark border">${item.barcode}</span></td>
+                                <td>${item.quantity} шт</td>
+                                <td><span class="text-danger fw-bold"><i class="bi bi-x-circle"></i> ${item.reason}</span></td>
+                            </tr>
+                        `;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Помилка завантаження карантину:", error);
+        tbody.innerHTML =
+          '<tr><td colspan="4" class="text-center py-4 text-danger">Помилка завантаження бази даних</td></tr>';
+      }
+    }
+  </script>
+
+  <%- include('partials/footer') %>
+</div>

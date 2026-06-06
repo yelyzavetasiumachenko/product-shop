@@ -57,11 +57,18 @@ router.get("/admin", (req, res) => {
 // Додаємо adminAuth як проміжний обробник
 // router.get('/api/admin/dashboard-stats', adminAuth, adminController.getDashboardStats);
 // Додаємо adminAuth як проміжний обробник (захист)
+// Аналітика для дашборду Директора
+router.get("/api/admin/stats/daily", adminAuth, adminController.getDailyStats);
 router.get(
-  "/api/admin/dashboard-stats",
+  "/api/admin/stats/period",
   adminAuth,
-  adminController.getDashboardStats,
+  adminController.getPeriodStats,
 );
+// router.get(
+//   "/api/admin/stats/quarantine-details",
+//   adminAuth,
+//   adminController.getQuarantineDetails,
+// );
 
 // Сторінка Персоналу для Директора
 router.get("/admin/staff", adminController.getStaffPage);

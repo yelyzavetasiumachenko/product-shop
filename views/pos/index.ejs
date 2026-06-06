@@ -5,9 +5,43 @@
   .qty-input::selection {
     background: transparent;
   }
+
+  /* 1. Жорстко фіксуємо сторінку на висоту екрана і прибираємо загальний скрол */
+  body {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: #f4f6f9; /* Світлий фон позаду карток */
+  }
+
+  /* 2. Навігаційна панель (шапка) залишається зверху, а контент займає решту місця */
+  .pos-main-container {
+    flex-grow: 1;
+    overflow: hidden; /* Не даємо контенту розпирати сторінку */
+    padding-bottom: 0; /* Невеликий відступ знизу */
+  }
+
+  /* 3. Магія для довгого чека: ця зона буде скролитися всередині себе */
+  .receipt-scroll-area {
+    height: calc(100vh - 180px); /* Висота екрана мінус шапка і відступи */
+    overflow-y: auto;
+  }
+
+  /* Робимо гарний тонкий скролбар для чека */
+  .receipt-scroll-area::-webkit-scrollbar {
+    width: 6px;
+  }
+  .receipt-scroll-area::-webkit-scrollbar-thumb {
+    background: #adb5bd;
+    border-radius: 10px;
+  }
 </style>
 
-<div class="container-fluid mt-3" style="height: calc(100vh - 70px)">
+<div
+  class="container-fluid mt-3 pos-main-container"
+  style="height: calc(100vh - 70px)"
+>
   <div class="row h-100">
     <div
       class="col-md-8 d-flex flex-column bg-white p-3 border rounded shadow-sm h-100"
@@ -18,12 +52,13 @@
         <div>
           <h4 class="mb-0">
             <i class="bi bi-receipt"></i> Чек
-            <span
+            <!-- <span
               id="receipt-id"
               class="text-primary fw-bold"
               data-next-number="<%= nextReceiptNumber %>"
               >#00000</span
-            >
+            > -->
+            <span id="current-receipt-number" class="text-primary">#00002</span>
           </h4>
         </div>
         <div class="text-end">
@@ -32,7 +67,10 @@
         </div>
       </div>
 
-      <div class="flex-grow-1 overflow-auto" style="max-height: 65vh">
+      <div
+        class="flex-grow-1 overflow-auto card-body p-0 receipt-scroll-area"
+        style="max-height: 65vh"
+      >
         <table class="table table-hover align-middle">
           <thead class="table-dark sticky-top">
             <tr>
@@ -245,7 +283,7 @@
       </div>
 
       <div
-        class="card shadow-sm bg-light flex-grow-1 d-flex flex-column justify-content-between p-3"
+        class="mb-4 card shadow-sm bg-light flex-grow-1 d-flex flex-column justify-content-between p-3"
       >
         <div class="text-center pt-2">
           <h5 class="text-muted text-uppercase fw-bold mb-1">До сплати</h5>
@@ -1228,6 +1266,7 @@
         cart = [];
         clearCustomerInput();
         renderCart();
+        incrementReceiptNumber();
         document.getElementById("barcode-input").focus();
       }
     } catch (error) {
@@ -1483,6 +1522,24 @@
     localStorage.setItem("pos_locked", "true");
     // Перенаправляємо на екран блокування
     window.location.href = "/pos/lock";
+  }
+
+  // Функція для візуального оновлення номера чека
+  function incrementReceiptNumber() {
+    const receiptSpan = document.getElementById("current-receipt-number");
+    if (!receiptSpan) return;
+
+    // Беремо поточний текст (наприклад, "#00002"), відкидаємо "#" і перетворюємо на число
+    let currentNumber = parseInt(receiptSpan.innerText.replace("#", ""), 10);
+
+    // Додаємо 1 для наступного чека
+    let nextNumber = currentNumber + 1;
+
+    // Перетворюємо назад у рядок і форматуємо (додаємо нулі спереду, щоб було 5 символів)
+    let formattedNumber = "#" + String(nextNumber).padStart(5, "0");
+
+    // Оновлюємо цифру на екрані
+    receiptSpan.innerText = formattedNumber;
   }
   // ------------------------------
 </script>
