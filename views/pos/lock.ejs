@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Каса заблокована | ERP Market</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body
+    class="bg-dark d-flex align-items-center justify-content-center"
+    style="
+      height: 100vh;
+      background: linear-gradient(135deg, #212529 0%, #343a40 100%);
+    "
+  >
+    <div
+      class="card shadow-lg border-0 text-center text-white"
+      style="
+        width: 400px;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+      "
+    >
+      <div class="card-body p-5">
+        <div class="mb-4">
+          <div
+            class="spinner-grow text-warning mb-3"
+            role="status"
+            style="width: 3rem; height: 3rem"
+          ></div>
+          <h3 class="fw-bold text-warning">Каса на перерві</h3>
+          <p class="text-light opacity-75 fs-5">
+            Касир: <span id="display-cashier-name" class="fw-bold">...</span>
+          </p>
+        </div>
+
+        <div class="mb-4 text-start">
+          <label class="form-label fw-bold text-white-50"
+            >Введіть пароль для розблокування</label
+          >
+          <input
+            type="password"
+            id="lock-password"
+            class="form-control form-control-lg bg-dark text-white border-secondary text-center fs-3"
+            placeholder="••••••••"
+            autofocus
+            onkeydown="if (event.key === 'Enter') unlockPOS();"
+          />
+        </div>
+
+        <button
+          class="btn btn-warning btn-lg w-100 fw-bold shadow-sm py-3"
+          onclick="unlockPOS()"
+        >
+          <i class="bi bi-unlock-fill"></i> Повернутися до роботи
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // Захист: якщо касир взагалі не увійшов у зміну, відправляємо на повний логін
+      if (!localStorage.getItem("shift_id")) {
+        window.location.href = "/login";
+      }
+
+      // Підставляємо ім'я касира з пам'яті браузера
+      const currentCashier = localStorage.getItem("cashier_name");
+      document.getElementById("display-cashier-name").innerText =
+        currentCashier || "Невідомий касир";
+
+      // Функція розблокування
+      async function unlockPOS() {
+        const password = document.getElementById("lock-password").value.trim();
+
+        if (!password) {
+          Swal.fire({
+            icon: "warning",
+            title: "Увага",
+            text: "Введіть пароль!",
+          });
+          return;
+        }
+
+        try {
+          // Перевіряємо пароль саме для цього користувача
+          const response = await axios.post("/api/auth/unlock", {
+            username: currentCashier,
+            password: password,
+          });
+
+          if (response.data.success) {
+            // Знімаємо мітку блокування
+            localStorage.removeItem("pos_locked");
+            // Повертаємо на робоче місце касира
+            window.location.href = "/pos";
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Помилка",
+            text: error.response?.data?.message || "Невірний пароль",
+            confirmButtonColor: "#ffc107",
+          });
+        }
+      }
+    </script>
+  </body>
+</html>

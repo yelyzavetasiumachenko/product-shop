@@ -1,0 +1,269 @@
+<!-- <!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Відкриття зміни | ERP Market</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body
+    class="bg-light d-flex align-items-center justify-content-center"
+    style="height: 100vh"
+  >
+    <div class="card shadow-lg border-0" style="width: 400px">
+      <div class="card-body p-5">
+        <div class="text-center mb-4">
+          <i class="bi bi-shop text-success" style="font-size: 3rem"></i>
+          <h3 class="fw-bold mt-2">ERP Market</h3>
+          <p class="text-muted">Авторизація касира</p>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Логін</label>
+          <input
+            type="text"
+            id="username"
+            class="form-control form-control-lg"
+            placeholder="Введіть логін"
+          />
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold">Пароль</label>
+          <input
+            type="password"
+            id="password"
+            class="form-control form-control-lg"
+            placeholder="Введіть пароль"
+          />
+        </div>
+
+        <button
+          class="btn btn-success btn-lg w-100 fw-bold shadow-sm"
+          onclick="openShift()"
+        >
+          <i class="bi bi-door-open"></i> Відкрити зміну
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // Якщо зміна вже відкрита, одразу кидаємо на касу
+      if (localStorage.getItem("shift_id")) {
+        window.location.href = "/pos";
+      }
+
+      async function openShift() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        if (!username || !password) {
+          Swal.fire({
+            icon: "warning",
+            title: "Увага",
+            text: "Заповніть логін та пароль",
+          });
+          return;
+        }
+
+        try {
+          // Відправляємо запит на сервер для відкриття зміни
+          const response = await axios.post("/api/auth/open-shift", {
+            username,
+            password,
+          });
+
+          if (response.data.success) {
+            // ЗБЕРІГАЄМО ID ЗМІНИ ТА ІМ'Я КАСИРА У БРАУЗЕРІ
+            localStorage.setItem("shift_id", response.data.shift_id);
+            localStorage.setItem("cashier_name", response.data.cashier_name);
+
+            window.location.href = "/pos"; // Переходимо на сторінку каси
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Помилка",
+            text: error.response?.data?.message || "Невірний логін або пароль",
+          });
+        }
+      }
+    </script>
+  </body>
+</html> -->
+<!-- <div class="text-center mb-4">
+  <i class="bi bi-shop text-success" style="font-size: 3rem"></i>
+  <h3 class="fw-bold mt-2">ERP Market</h3>
+  <p class="text-muted">Єдина система авторизації</p>
+</div>
+
+<button
+  class="btn btn-success btn-lg w-100 fw-bold shadow-sm"
+  onclick="loginSystem()"
+>
+  <i class="bi bi-box-arrow-in-right"></i> Увійти в систему
+</button>
+
+<script>
+  async function loginSystem() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!username || !password) {
+      Swal.fire({
+        icon: "warning",
+        title: "Увага",
+        text: "Заповніть логін та пароль",
+      });
+      return;
+    }
+
+    try {
+      // Викликаємо наш новий розумний API
+      const response = await axios.post("/api/auth/login", {
+        username,
+        password,
+      });
+
+      if (response.data.success) {
+        const data = response.data;
+
+        // Зберігаємо загальні дані
+        localStorage.setItem("cashier_name", data.cashier_name);
+        localStorage.setItem("role_id", data.role_id);
+
+        // Якщо це касир — зберігаємо ще й shift_id
+        if (data.shift_id) {
+          localStorage.setItem("shift_id", data.shift_id);
+        }
+
+        // Сервер сам каже, куди перекинути користувача!
+        window.location.href = data.redirect_url;
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Помилка",
+        text: error.response?.data?.message || "Помилка авторизації",
+      });
+    }
+  }
+</script> -->
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Вхід у систему | ERP Market</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body
+    class="bg-light d-flex align-items-center justify-content-center"
+    style="height: 100vh"
+  >
+    <div class="card shadow-lg border-0" style="width: 400px">
+      <div class="card-body p-5">
+        <div class="text-center mb-4">
+          <i class="bi bi-shop text-success" style="font-size: 3rem"></i>
+          <h3 class="fw-bold mt-2">ERP Market</h3>
+          <p class="text-muted">Єдина система авторизації</p>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Логін</label>
+          <input
+            type="text"
+            id="username"
+            class="form-control form-control-lg"
+            placeholder="Введіть логін"
+          />
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-bold">Пароль</label>
+          <input
+            type="password"
+            id="password"
+            class="form-control form-control-lg"
+            placeholder="Введіть пароль"
+            onkeydown="if (event.key === 'Enter') loginSystem();"
+          />
+        </div>
+
+        <button
+          class="btn btn-success btn-lg w-100 fw-bold shadow-sm"
+          onclick="loginSystem()"
+        >
+          <i class="bi bi-box-arrow-in-right"></i> Увійти в систему
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // Очищаємо залишки старих сесій при відкритті сторінки логіну
+      localStorage.removeItem("shift_id");
+      localStorage.removeItem("role_id");
+      localStorage.removeItem("pos_locked");
+
+      async function loginSystem() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+
+        if (!username || !password) {
+          Swal.fire({
+            icon: "warning",
+            title: "Увага",
+            text: "Заповніть логін та пароль",
+          });
+          return;
+        }
+
+        try {
+          // Викликаємо наш новий розумний API
+          const response = await axios.post("/api/auth/login", {
+            username,
+            password,
+          });
+
+          if (response.data.success) {
+            const data = response.data;
+
+            // Зберігаємо загальні дані
+            localStorage.setItem("cashier_name", data.cashier_name);
+            localStorage.setItem("role_id", data.role_id);
+
+            // Якщо це касир — зберігаємо ще й shift_id
+            if (data.shift_id) {
+              localStorage.setItem("shift_id", data.shift_id);
+            }
+
+            // Сервер сам каже, куди перекинути користувача (на Дашборд, Склад чи Касу)
+            window.location.href = data.redirect_url;
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Помилка",
+            text: error.response?.data?.message || "Помилка авторизації",
+          });
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -275,6 +275,13 @@
           </div>
 
           <button
+            class="btn btn-outline-danger btn-lg w-100 py-2 mb-2 fs-4 fw-bold"
+            onclick="confirmClearCart()"
+          >
+            <i class="bi bi-trash3"></i> Скасувати чек
+          </button>
+
+          <button
             class="btn btn-success btn-lg w-100 py-3 fs-3 fw-bold shadow"
             id="checkout-btn"
             disabled
@@ -357,7 +364,11 @@
             class="form-control form-control-lg text-end fs-4 fw-bold"
             id="cash-received"
             placeholder="0.00"
-            oninput="calculateChange()"
+            min="0"
+            oninput="
+              this.value = this.value.replace(/[-]/g, '');
+              calculateChange();
+            "
           />
           <div
             class="d-flex justify-content-between mt-3 align-items-center border-top pt-2"
@@ -429,6 +440,37 @@
   function getUomUa(uom) {
     return uomUa[uom] || uom;
   }
+
+  // САМИЙ ПОЧАТОК ТЕГУ <script> у views/pos/index.ejs
+  const currentShiftId = localStorage.getItem("shift_id");
+  const cashierName = localStorage.getItem("cashier_name");
+  var userRole = localStorage.getItem("role_id");
+
+  // Якщо касир не авторизований - викидаємо його на сторінку логіну
+  // if (!currentShiftId) {
+  //   window.location.href = "/pos/login";
+  // }
+  // Якщо користувач не авторизований взагалі АБО його роль НЕ 2 (не касир)
+  if (!userRole || userRole !== "a0000000-0000-0000-0000-000000000001") {
+    alert("Доступ заборонено! Це робоче місце виключно для касирів.");
+    window.location.href = "/login";
+  }
+
+  // Якщо це касир, але в нього немає відкритої зміни
+  if (userRole === "a0000000-0000-0000-0000-000000000001" && !currentShiftId) {
+    window.location.href = "/login";
+  }
+
+  // НОВЕ: Якщо каса заблокована через перерву - миттєво перекидаємо на екран розблокування
+  if (localStorage.getItem("pos_locked") === "true") {
+    window.location.href = "/pos/lock";
+  }
+
+  // Виводимо ім'я касира в шапці (якщо у вас є елемент з id="cashier-name-display")
+  document.addEventListener("DOMContentLoaded", () => {
+    const nameDisplay = document.getElementById("cashier-name-display");
+    if (nameDisplay && cashierName) nameDisplay.innerText = cashierName;
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     paymentModalObj = new bootstrap.Modal(
@@ -547,24 +589,67 @@
   }
 
   // Калькулятор решти
+  // 3. Калькулятор решти із захистом та перевіркою недостачі
   function calculateChange() {
-    const total = parseFloat(
-      document.getElementById("total-amount-display").innerText,
-    );
-    const received =
-      parseFloat(document.getElementById("cash-received").value) || 0;
+    const cashInput = document.getElementById("cash-received");
+
+    // Додатковий захист: якщо користувач примудрився вставити мінус через Ctrl+V
+    if (parseFloat(cashInput.value) < 0) {
+      cashInput.value = 0;
+    }
+
+    const received = parseFloat(cashInput.value) || 0;
+    // Дізнаємося поточну суму "До сплати" з урахуванням віднятих бонусів
+    const finalTotal =
+      parseFloat(document.getElementById("modal-total-display").innerText) || 0;
     const changeEl = document.getElementById("cash-change");
+    const confirmBtn = document.getElementById("confirm-payment-btn");
+    const paymentMethod = document.querySelector(
+      'input[name="paymentMethod"]:checked',
+    ).value;
 
-    const change = received - total;
+    // Рахуємо різницю
+    const change = received - finalTotal;
 
-    if (change >= 0) {
-      changeEl.innerText = change.toFixed(2) + " ₴";
-      changeEl.classList.replace("text-danger", "text-success");
+    // Перевіряємо логіку тільки якщо обрано "Готівка"
+    if (paymentMethod === "Cash") {
+      if (cashInput.value.trim() === "" || received === 0) {
+        // Якщо поле порожнє або 0 — решта 0.00, але кнопку блокуємо (якщо чек не 0)
+        changeEl.innerText = "0.00 ₴";
+        changeEl.className = "fs-3 fw-bold text-secondary";
+        confirmBtn.disabled = finalTotal > 0;
+      } else if (change >= 0) {
+        // Грошей достатньо — виводимо зелену решту і вмикаємо кнопку
+        changeEl.innerText = change.toFixed(2) + " ₴";
+        changeEl.className = "fs-3 fw-bold text-success";
+        confirmBtn.disabled = false;
+      } else {
+        // Грошей МЕНШЕ ніж треба — виводимо ЧЕРВОНИЙ ТЕКСТ і блокуємо кнопку Оплати
+        changeEl.innerText = "Недостатньо коштів";
+        changeEl.className = "fs-4 fw-bold text-danger";
+        confirmBtn.disabled = true;
+      }
     } else {
-      changeEl.innerText = "Замало коштів!";
-      changeEl.classList.replace("text-success", "text-danger");
+      // Якщо це картка — калькулятор схований, кнопка завжди активна
+      confirmBtn.disabled = false;
     }
   }
+
+  // 4. Логіка перемикання Картка/Готівка (керування кнопкою Підтвердити)
+  document.querySelectorAll('input[name="paymentMethod"]').forEach((radio) => {
+    radio.addEventListener("change", function () {
+      const cashCalc = document.getElementById("cash-calculator");
+      const confirmBtn = document.getElementById("confirm-payment-btn");
+
+      if (this.value === "Cash") {
+        cashCalc.style.display = "block";
+        calculateChange(); // Одразу прораховуємо валідацію для готівки
+      } else {
+        cashCalc.style.display = "none";
+        confirmBtn.disabled = false; // Для картки кнопка завжди активна
+      }
+    });
+  });
 
   async function handleBarcodeSubmit(event) {
     if (event) event.preventDefault();
@@ -968,105 +1053,189 @@
     }
   });
 
+  // 1. Відкриття вікна оплати (БЕЗВІДМОВНИЙ ВАРІАНТ)
+  // 1. Відкриття вікна оплати
   function openPaymentModal() {
-    const total = parseFloat(
-      document.getElementById("total-amount-display").innerText,
-    );
-    document.getElementById("modal-total-display").innerText =
-      `${total.toFixed(2)} ₴`;
+    if (cart.length === 0) return;
 
+    // Рахуємо загальну суму чека
+    let totalAmount = 0;
+    cart.forEach((item) => {
+      totalAmount += parseFloat(item.price) * parseFloat(item.quantity);
+    });
+
+    // 1.1 Встановлюємо суму в правильний ID
+    document.getElementById("modal-total-display").innerText =
+      totalAmount.toFixed(2);
+
+    // 1.2 Налаштовуємо блок бонусів
     const bonusBlock = document.getElementById("modal-bonus-block");
-    if (currentCustomer) {
+    const maxBonusesSpan = document.getElementById("modal-max-bonuses");
+    const bonusInput = document.getElementById("bonus-spend-input");
+
+    // Якщо клієнт є і в нього є бонуси
+    if (
+      currentCustomer &&
+      currentCustomer.LoyaltyCard &&
+      parseFloat(currentCustomer.LoyaltyCard.bonus_balance) > 0
+    ) {
       bonusBlock.style.display = "block";
-      document.getElementById("modal-max-bonuses").innerText =
-        currentCustomer.bonus_balance.toFixed(2);
-      document.getElementById("bonus-spend-input").max = Math.min(
-        currentCustomer.bonus_balance,
-        total,
+      const availableBonuses = parseFloat(
+        currentCustomer.LoyaltyCard.bonus_balance,
       );
+
+      // Клієнт не може списати більше, ніж сума чека
+      const maxToSpend = Math.min(availableBonuses, totalAmount);
+
+      maxBonusesSpan.innerText = availableBonuses.toFixed(2);
+      bonusInput.value = 0; // За замовчуванням нічого не списуємо
+      bonusInput.max = maxToSpend;
     } else {
       bonusBlock.style.display = "none";
+      bonusInput.value = 0;
     }
 
-    // Скидаємо калькулятор
+    // 1.3 Скидаємо калькулятор готівки
+    document.getElementById("pay-card").checked = true; // За замовчуванням Картка
+    document.getElementById("cash-calculator").style.display = "none";
     document.getElementById("cash-received").value = "";
-    calculateChange();
+    document.getElementById("cash-change").innerText = "0.00 ₴";
 
-    paymentModalObj.show();
+    document.getElementById("confirm-payment-btn").disabled = false;
+
+    // Показуємо вікно
+    const modalElement = document.getElementById("paymentModal");
+    const paymentModal =
+      bootstrap.Modal.getInstance(modalElement) ||
+      new bootstrap.Modal(modalElement);
+    paymentModal.show();
   }
 
+  // 2. Валідація вводу бонусів (щоб не списали більше ніж є)
+  // function validateBonusSpend() {
+  //   const input = document.getElementById("bonus-spend-input");
+  //   let spendVal = parseFloat(input.value) || 0;
+  //   const maxVal = parseFloat(input.max) || 0;
+
+  //   if (spendVal < 0) spendVal = 0;
+  //   if (spendVal > maxVal) spendVal = maxVal;
+  //   input.value = spendVal;
+
+  //   // Перераховуємо суму "До сплати" з урахуванням знижки
+  //   let totalAmount = 0;
+  //   cart.forEach((item) => (totalAmount += item.price * item.quantity));
+
+  //   const finalTotal = totalAmount - spendVal;
+  //   document.getElementById("modal-total-display").innerText =
+  //     finalTotal.toFixed(2);
+
+  //   calculateChange(); // Оновлюємо решту, якщо відкрито калькулятор готівки
+  // }
+  // 2. Валідація вводу бонусів (БЕЗ стирання крапки)
   function validateBonusSpend() {
     const input = document.getElementById("bonus-spend-input");
-    const total = parseFloat(
-      document.getElementById("total-amount-display").innerText,
-    );
-    let val = parseFloat(input.value) || 0;
+    const maxVal = parseFloat(input.max) || 0;
 
-    const maxAvailable = currentCustomer ? currentCustomer.bonus_balance : 0;
-    const maxAllowed = Math.min(maxAvailable, total);
+    // Читаємо значення, але НЕ перезаписуємо його одразу
+    let spendVal = parseFloat(input.value);
+    if (isNaN(spendVal)) spendVal = 0; // Якщо поле порожнє, рахуємо як 0
 
-    if (val > maxAllowed) input.value = maxAllowed;
-    if (val < 0) input.value = 0;
+    // Перезаписуємо поле ТІЛЬКИ якщо є порушення лімітів
+    if (spendVal > maxVal) {
+      input.value = maxVal;
+      spendVal = maxVal;
+    } else if (spendVal < 0) {
+      input.value = 0;
+      spendVal = 0;
+    }
+    // Якщо число в межах норми (наприклад, "210.") — ми його не чіпаємо,
+    // дозволяючи касиру спокійно дописати копійки після крапки!
+
+    // Перераховуємо суму "До сплати" з урахуванням знижки
+    let totalAmount = 0;
+    cart.forEach((item) => (totalAmount += item.price * item.quantity));
+
+    const finalTotal = totalAmount - spendVal;
+    document.getElementById("modal-total-display").innerText =
+      finalTotal.toFixed(2);
+
+    calculateChange(); // Оновлюємо решту, якщо відкрито калькулятор готівки
   }
 
-  async function submitCheckout() {
-    // Виправлений баг селектора:
-    const paymentMethod =
-      document.querySelector('input[name="paymentMethod"]:checked')?.value ||
-      "Card";
-    const bonusSpent = currentCustomer
-      ? parseFloat(document.getElementById("bonus-spend-input").value) || 0
-      : 0;
+  // 3. Калькулятор решти
+  function calculateChange() {
+    const received =
+      parseFloat(document.getElementById("cash-received").value) || 0;
+    const finalTotal =
+      parseFloat(document.getElementById("modal-total-display").innerText) || 0;
+    const changeEl = document.getElementById("cash-change");
 
-    // Перевірка калькулятора решти
-    if (paymentMethod === "Cash") {
-      const received =
-        parseFloat(document.getElementById("cash-received").value) || 0;
-      const total =
-        parseFloat(document.getElementById("total-amount-display").innerText) -
-        bonusSpent;
-      if (received < total) {
-        alert("Клієнт дав недостатньо готівки!");
-        return;
-      }
+    const change = received - finalTotal;
+
+    if (change >= 0) {
+      changeEl.innerText = change.toFixed(2) + " ₴";
+      changeEl.className = "fs-3 fw-bold text-success";
+    } else {
+      changeEl.innerText = "0.00 ₴";
+      changeEl.className = "fs-3 fw-bold text-danger";
     }
+  }
 
-    const payload = {
-      items: cart,
-      customer_id: currentCustomer ? currentCustomer.id : null,
-      payment_method: paymentMethod,
-      bonus_spent: bonusSpent,
-      shift_id: "a2222222-0000-0000-0000-000000000003",
-    };
+  // 4. Логіка перемикання Картка/Готівка (показує калькулятор)
+  document.querySelectorAll('input[name="paymentMethod"]').forEach((radio) => {
+    radio.addEventListener("change", function () {
+      const cashCalc = document.getElementById("cash-calculator");
+      cashCalc.style.display = this.value === "Cash" ? "block" : "none";
+    });
+  });
+
+  // 5. Фінальна відправка чека на сервер
+  async function submitCheckout() {
+    // Читаємо обраний спосіб оплати з радіокнопки
+    const paymentMethod = document.querySelector(
+      'input[name="paymentMethod"]:checked',
+    ).value;
+    const bonusesSpent =
+      parseFloat(document.getElementById("bonus-spend-input").value) || 0;
 
     try {
+      const payload = {
+        items: cart,
+        payment_method: paymentMethod,
+        // Відправляємо саме ID клієнта, як і очікує сервер
+        customer_id: currentCustomer ? currentCustomer.id : null,
+        // Змінили назву змінної на ту, яку чекає сервер (без "es")
+        bonus_spent: bonusesSpent,
+        shift_id: localStorage.getItem("shift_id"),
+      };
+
       const response = await axios.post("/api/pos/checkout", payload);
+
       if (response.data.success) {
-        paymentModalObj.hide();
-        generateNewReceiptId(); // Оновлюємо номер для наступного чека
+        // Ховаємо модалку
+        const modalEl = document.getElementById("paymentModal");
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
         Swal.fire({
           icon: "success",
-          title: "Успішно!",
-          text: `${response.data.message} Фіскальний номер: ${response.data.fiscal_number}`,
+          title: "Чек оплачено!",
+          text: `Фіскальний номер: ${response.data.fiscal_number}`,
           confirmButtonColor: "#198754",
         });
 
+        // Очищаємо касу
         cart = [];
-        currentCustomer = null;
         clearCustomerInput();
-        document.getElementById("loyalty-info").style.display = "none";
-
-        // Скидаємо перемикач на Картку за замовчуванням для нового чека
-        document.getElementById("pay-card").checked = true;
-        document.getElementById("cash-calculator").style.display = "none";
-
         renderCart();
+        document.getElementById("barcode-input").focus();
       }
     } catch (error) {
-      alert(
-        "Помилка фіскалізації: " +
-          (error.response?.data?.message || error.message),
-      );
+      Swal.fire({
+        icon: "error",
+        title: "Помилка",
+        text: "Не вдалося провести оплату.",
+      });
     }
   }
 
@@ -1154,6 +1323,167 @@
       document.getElementById("search-results-dropdown").style.display = "none";
     }
   });
+
+  // Очищення поточного чека
+  function confirmClearCart() {
+    if (cart.length === 0 && !currentCustomer) return; // Якщо каса і так порожня, нічого не робимо
+
+    Swal.fire({
+      title: "Скасувати чек?",
+      text: "Усі відскановані товари та дані клієнта будуть видалені з екрана.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Так, скасувати",
+      cancelButtonText: "Повернутися",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        cart = []; // Очищаємо масив товарів
+        clearCustomerInput(); // Очищаємо обраного клієнта
+        renderCart(); // Перемальовуємо порожній список
+        document.getElementById("barcode-input").focus(); // Повертаємо курсор на сканер
+      }
+    });
+  }
+
+  // Функція виходу (закриття зміни)
+  // function logoutCashier() {
+  //   Swal.fire({
+  //     title: "Закрити зміну?",
+  //     text: "Ви дійсно хочете завершити роботу та вийти з акаунту?",
+  //     icon: "question",
+  //     showCancelButton: true,
+  //     confirmButtonColor: "#d33",
+  //     cancelButtonColor: "#6c757d",
+  //     confirmButtonText: "Так, вийти",
+  //     cancelButtonText: "Скасувати",
+  //   }).then(async (result) => {
+  //     if (result.isConfirmed) {
+  //       const shiftId = localStorage.getItem("shift_id");
+
+  //       try {
+  //         // Відправляємо запит на бекенд, щоб записати end_time
+  //         if (shiftId) {
+  //           await axios.post("/api/auth/close-shift", { shift_id: shiftId });
+  //         }
+  //       } catch (error) {
+  //         console.error("Не вдалося синхронізувати закриття з сервером", error);
+  //       }
+
+  //       // Очищаємо пам'ять браузера
+  //       localStorage.removeItem("shift_id");
+  //       localStorage.removeItem("cashier_name");
+
+  //       // Перекидаємо на сторінку логіну
+  //       window.location.href = "/pos/login";
+  //     }
+  //   });
+  // }
+
+  // Функція закриття зміни з фінальним Z-звітом
+  async function logoutCashier() {
+    const shiftId = localStorage.getItem("shift_id");
+    if (!shiftId) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      // 1. Спочатку запитуємо звіт у сервера
+      const response = await axios.get(`/api/auth/shift-summary/${shiftId}`);
+      if (!response.data.success) throw new Error("Не вдалося отримати звіт");
+
+      const data = response.data.summary;
+
+      // 2. Виводимо красиве вікно Z-звіту з HTML таблицею
+      Swal.fire({
+        title: "🔒 Фінальний Z-Звіт",
+        html: `
+          <p class="text-muted mb-3">Перевірте фінансові підсумки перед здачею каси</p>
+          <table class="table table-bordered text-start align-middle fs-6">
+            <tbody>
+              <tr>
+                <td class="fw-bold bg-light">Кількість чеків:</td>
+                <td class="text-end fw-bold text-dark">${data.sales_count}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Розмінна монета (ранок):</td>
+                <td class="text-end">${data.starting_cash} ₴</td>
+              </tr>
+              <tr>
+                <td class="text-success fw-bold">Виручка ГОТІВКА (+):</td>
+                <td class="text-end text-success fw-bold">+${data.cash_sales} ₴</td>
+              </tr>
+              <tr>
+                <td class="text-primary fw-bold">Виручка КАРТКА:</td>
+                <td class="text-end text-primary fw-bold">${data.card_sales} ₴</td>
+              </tr>
+              <tr class="table-warning">
+                <td class="text-warning-emphasis">Списано бонусами (Points):</td>
+                <td class="text-end">-${data.bonuses_spent} ₴</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Нараховано бонусів клієнтам:</td>
+                <td class="text-end text-muted">+${data.bonuses_earned} ₴</td>
+              </tr>
+              <tr class="table-success fs-5">
+                <td class="fw-bold text-success">МАЄ БУТИ В КАСІ:</td>
+                <td class="text-end fw-bold text-success">${data.expected_cash} ₴</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-danger small fw-bold mt-2 mb-0">⚠️ Увага! Після натискання зміну буде закрито остаточно.</p>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: "#198754", // Зелена кнопка успіху
+        cancelButtonColor: "#6c757d",
+        confirmButtonText:
+          '<i class="bi bi-cash-register"></i> Здати касу та вийти',
+        cancelButtonText: "Скасувати",
+        width: "450px",
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          // 3. Якщо касир підтвердив, викликаємо API закриття
+          const closeResponse = await axios.post("/api/auth/close-shift", {
+            shift_id: shiftId,
+          });
+
+          if (closeResponse.data.success) {
+            // Очищаємо браузер
+            localStorage.removeItem("shift_id");
+            localStorage.removeItem("cashier_name");
+            localStorage.removeItem("pos_locked");
+
+            // Перенаправляємо на логін
+            Swal.fire({
+              icon: "success",
+              title: "Зміну закрито!",
+              text: "Каса успішно здана. Гарного вечора!",
+              confirmButtonColor: "#198754",
+            }).then(() => {
+              window.location.href = "/login";
+            });
+          }
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      Swal.fire({
+        icon: "error",
+        title: "Помилка",
+        text: "Не вдалося згенерувати фінансовий звіт для закриття каси.",
+      });
+    }
+  }
+
+  // Перехід у режим перерви
+  function goOnBreak() {
+    // Ставимо мітку блокування, але НЕ видаляємо shift_id
+    localStorage.setItem("pos_locked", "true");
+    // Перенаправляємо на екран блокування
+    window.location.href = "/pos/lock";
+  }
   // ------------------------------
 </script>
 

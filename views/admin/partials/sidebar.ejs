@@ -1,0 +1,43 @@
+<div class="sidebar d-flex flex-column shadow">
+  <div class="p-4 text-center border-bottom border-secondary">
+    <i class="bi bi-building fs-1 text-primary"></i>
+    <h4 class="mt-2 fw-bold text-white">ERP Market</h4>
+    <small class="text-muted">Панель Директора</small>
+  </div>
+
+  <div class="mt-3 flex-grow-1">
+    <a href="/admin" class="active"
+      ><i class="bi bi-bar-chart-fill me-2"></i> Дашборд</a
+    >
+    <a href="/warehouse"><i class="bi bi-box-seam me-2"></i> Склад</a>
+    <a href="/admin/staff"
+      ><i class="bi bi-people-fill me-2"></i> Персонал та Каси</a
+    >
+    <a href="/admin/clients"
+      ><i class="bi bi-credit-card-2-front-fill me-2"></i> Клієнти (CRM)</a
+    >
+  </div>
+
+  <div class="p-3 border-top border-secondary text-center">
+    <span class="d-block text-muted mb-2 small" id="admin-name-display"
+      >Завантаження...</span
+    >
+    <button
+      class="btn btn-outline-danger btn-sm w-100 fw-bold"
+      onclick="logoutAdmin()"
+    >
+      <i class="bi bi-box-arrow-left"></i> Вийти
+    </button>
+  </div>
+</div>
+
+<script>
+  // Вивід імені адміна
+  document.getElementById("admin-name-display").innerText =
+    localStorage.getItem("cashier_name") || "Директор";
+
+  function logoutAdmin() {
+    localStorage.clear();
+    window.location.href = "/login";
+  }
+</script>

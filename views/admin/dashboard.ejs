@@ -1,98 +1,139 @@
-<%- include('../partials/header') %>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<%- include('partials/header') %> <%- include('partials/sidebar') %>
 
-<div class="container mt-4">
-    <h2 class="mb-4">Панель Директора</h2>
+<div class="main-content">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-dark">Панель Директора</h2>
+    <div class="text-muted">
+      <i class="bi bi-calendar3"></i> <span id="current-date"></span>
+    </div>
+  </div>
 
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card text-white bg-success shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Виторг за сьогодні</h5>
-                    <h2 class="fw-bold"><%= kpi.todayRevenue %> ₴</h2>
-                </div>
-            </div>
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card bg-success text-white border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h6 class="text-uppercase fw-bold opacity-75 mb-3">
+            Виторг за сьогодні
+          </h6>
+          <h1 class="display-5 fw-bold mb-0" id="dash-revenue">0.00 ₴</h1>
         </div>
-        <div class="col-md-4">
-            <div class="card text-white bg-primary shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Кількість чеків</h5>
-                    <h2 class="fw-bold"><%= kpi.totalChecks %></h2>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-primary text-white border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h6 class="text-uppercase fw-bold opacity-75 mb-3">
+            Кількість чеків
+          </h6>
+          <h1 class="display-5 fw-bold mb-0" id="dash-receipts">0</h1>
         </div>
-        <div class="col-md-4">
-            <div class="card text-dark bg-warning shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Товарів на карантині</h5>
-                    <h2 class="fw-bold"><%= kpi.quarantineItems %> партій</h2>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card bg-warning text-dark border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h6 class="text-uppercase fw-bold opacity-75 mb-3">
+            Товарів на карантині
+          </h6>
+          <h1 class="display-5 fw-bold mb-0" id="dash-quarantine">0 партій</h1>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-md-8">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-4">Динаміка продажів (Останні 7 днів)</h5>
+          <canvas id="salesChart" height="120"></canvas>
+        </div>
+      </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Динаміка продажів (Тиждень)</h5>
-                    <canvas id="revenueChart" 
-                            data-labels="<%= JSON.stringify(chartLabels) %>" 
-                            data-values="<%= JSON.stringify(chartData) %>">
-                    </canvas>
-                </div>
-            </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-4">ТОП-3 товари</h5>
+          <ul class="list-group list-group-flush" id="top-products-list">
+            <li class="list-group-item text-muted text-center py-4">
+              Завантаження...
+            </li>
+          </ul>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">ТОП-3 товари</h5>
-                    <ol class="list-group list-group-numbered mt-3">
-                        <% topProducts.forEach(product => { %>
-                            <li class="list-group-item d-flex justify-content-between align-items-start">
-                                <div class="ms-2 me-auto fw-bold"><%= product.name %></div>
-                                <span class="badge bg-primary rounded-pill"><%= product.sold_qty %> шт</span>
-                            </li>
-                        <% }); %>
-                    </ol>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
-    // Зчитуємо елемент canvas
-    const chartCanvas = document.getElementById('revenueChart');
-    
-    // Чистий парсинг даних з HTML атрибутів без змішування синтаксису EJS та JS
-    const labelsArray = JSON.parse(chartCanvas.dataset.labels);
-    const dataArray = JSON.parse(chartCanvas.dataset.values);
+  document.getElementById("current-date").innerText =
+    new Date().toLocaleDateString("uk-UA");
 
-    // Ініціалізація графіка Chart.js
-    const ctx = chartCanvas.getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labelsArray,
-            datasets: [{
-                label: 'Виторг (ГРН)',
-                data: dataArray,
-                borderColor: '#198754',
-                tension: 0.3,
-                fill: true,
-                backgroundColor: 'rgba(25, 135, 84, 0.1)'
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
+  async function loadDashboardStats() {
+    try {
+      const response = await axios.get("/api/admin/dashboard-stats");
+      const data = response.data;
+
+      if (data.success) {
+        // Оновлюємо картки
+        document.getElementById("dash-revenue").innerText = `${data.revenue} ₴`;
+        document.getElementById("dash-receipts").innerText = data.receipts;
+        document.getElementById("dash-quarantine").innerText =
+          `${data.quarantine} партій`;
+
+        // Оновлюємо ТОП-3
+        const topList = document.getElementById("top-products-list");
+        topList.innerHTML = "";
+
+        if (data.topProducts.length === 0) {
+          topList.innerHTML =
+            '<li class="list-group-item text-muted">Немає продажів</li>';
+        } else {
+          data.topProducts.forEach((prod, index) => {
+            topList.innerHTML += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-3 px-0">
+                                <span><strong>${index + 1}.</strong> ${prod.product_name}</span>
+                                <span class="badge bg-primary rounded-pill">${prod.total_sold} шт</span>
+                            </li>
+                        `;
+          });
         }
-    });
+
+        // Малюємо графік
+        const ctx = document.getElementById("salesChart").getContext("2d");
+        const labels = data.chartData.map((item) => item.sale_day);
+        const values = data.chartData.map((item) => item.daily_revenue);
+
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Виторг (ГРН)",
+                data: values,
+                borderColor: "#0d6efd",
+                backgroundColor: "rgba(13, 110, 253, 0.1)",
+                borderWidth: 3,
+                fill: true,
+                tension: 0.3,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } },
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Помилка завантаження статистики", error);
+    }
+  }
+
+  loadDashboardStats();
 </script>
 
-<%- include('../partials/footer') %>
+<%- include('partials/footer') %>

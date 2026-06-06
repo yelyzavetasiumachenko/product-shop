@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Панель Директора | ERP Market</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+    /* Жорстке скидання відступів та блокування глобального скролу */
+    body { background-color: #f4f6f9; margin: 0; overflow: hidden; height: 100vh; }
+    
+    /* Головний контейнер на весь екран */
+    .admin-wrapper { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+    
+    /* Меню, яке ніколи не звужується */
+    .sidebar { width: 250px; background-color: #212529; color: white; flex-shrink: 0; display: flex; flex-direction: column; z-index: 10; height: 100vh; }
+    .sidebar a { color: #adb5bd; text-decoration: none; padding: 12px 20px; display: block; font-weight: 500; transition: 0.3s; }
+    .sidebar a:hover, .sidebar a.active { background-color: #0d6efd; color: white; border-radius: 0 20px 20px 0; margin-right: 10px; }
+    
+    /* КОНТЕНТ: Дозволяємо вертикальну прокрутку (overflow-y: auto) та фіксуємо висоту */
+    .main-content { 
+        flex-grow: 1; 
+        padding: 30px; 
+        width: calc(100% - 250px); 
+        background-color: #f4f6f9; 
+        height: 100vh; 
+        overflow-y: auto; 
+    }
+  </style>
+  </head>
+  <body>
+    <!-- <script>
+      const userRole = localStorage.getItem("role_id");
+      if (userRole !== "1") {
+        alert("Доступ заборонено! У вас немає прав адміністратора.");
+        window.location.href = "/pos/login";
+      }
+
+      // Глобальне налаштування Axios для додавання імені користувача у кожен запит API
+      axios.interceptors.request.use(function (config) {
+        config.headers["x-user-name"] = localStorage.getItem("cashier_name");
+        return config;
+      });
+    </script> -->
+    <script>
+      const userRole = localStorage.getItem("role_id");
+      const ADMIN_ROLE_VALUE = "a0000000-0000-0000-0000-000000000003";
+
+      if (userRole !== ADMIN_ROLE_VALUE) {
+        alert("Доступ заборонено! У вас немає прав адміністратора.");
+        window.location.href = "/login";
+      }
+
+      // Глобальне налаштування Axios
+      axios.interceptors.request.use(function (config) {
+        config.headers["x-user-name"] = localStorage.getItem("cashier_name");
+        return config;
+      });
+    </script>
+
+    <div class="d-flex">
+  </body>
+</html>
