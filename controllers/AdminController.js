@@ -1,85 +1,5 @@
-// const { sequelize, Sale, SaleItem, Product, Batch } = require("../models");
-// const { Op } = require("sequelize");
-
-// exports.getDashboard = async (req, res) => {
-//   try {
-//     // 1. Розрахунок KPI (За поточну дату - наприклад, 2026-06-03)
-//     const todayStr = "2026-06-03"; // У реальному проєкті: new Date().toISOString().split('T')[0]
-
-//     // Виторг за сьогодні
-//     const todayRevenue =
-//       (await Sale.sum("total_amount", {
-//         where: sequelize.where(
-//           sequelize.fn("DATE", sequelize.col("sale_date")),
-//           todayStr,
-//         ),
-//       })) || 0;
-
-//     // Кількість чеків за сьогодні
-//     const totalChecks = await Sale.count({
-//       where: sequelize.where(
-//         sequelize.fn("DATE", sequelize.col("sale_date")),
-//         todayStr,
-//       ),
-//     });
-
-//     // Кількість партій на карантині
-//     const quarantineItems = await Batch.count({
-//       where: { status: "Quarantine" },
-//     });
-
-//     // 2. Дані для графіка Chart.js (Виторг за останні 7 днів)
-//     // Використовуємо чистий SQL-запит для точного групування по днях
-//     const revenueData = await sequelize.query(
-//       `
-//       SELECT
-//         TO_CHAR(sale_date, 'DD.MM') AS date_label,
-//         SUM(total_amount) AS daily_sum
-//       FROM sales
-//       GROUP BY TO_CHAR(sale_date, 'DD.MM'), DATE_TRUNC('day', sale_date)
-//       ORDER BY DATE_TRUNC('day', sale_date) ASC
-//       LIMIT 7
-//     `,
-//       { type: sequelize.QueryTypes.SELECT },
-//     );
-
-//     const chartLabels = revenueData.map((item) => item.date_label);
-//     const chartData = revenueData.map((item) => parseFloat(item.daily_sum));
-
-//     // 3. ТОП-3 товари за кількістю продажів
-//     const topProducts = await sequelize.query(
-//       `
-//       SELECT
-//         p.name,
-//         SUM(si.quantity_sold) AS sold_qty
-//       FROM sale_items si
-//       JOIN batches b ON si.batch_id = b.id
-//       JOIN products p ON b.product_id = p.id
-//       GROUP BY p.name
-//       ORDER BY sold_qty DESC
-//       LIMIT 3
-//     `,
-//       { type: sequelize.QueryTypes.SELECT },
-//     );
-
-//     // Рендеринг сторінки з передачею всієї зібраної аналітики
-//     res.render("admin/dashboard", {
-//       user: { username: "admin_yelyzaveta" }, // Емуляція авторизованого користувача
-//       kpi: {
-//         todayRevenue: parseFloat(todayRevenue).toFixed(2),
-//         totalChecks,
-//         quarantineItems,
-//       },
-//       chartLabels,
-//       chartData,
-//       topProducts,
-//     });
-//   } catch (error) {
-//     console.error("Помилка завантаження дашборду директора:", error);
-//     res.status(500).send("Внутрішня помилка сервера");
-//   }
-// };
-
+const { Op } = require("sequelize");
+const { Sale, SalePayment } = require("../models"); // Шлях може відрізнятися залежно від папки
 const { sequelize } = require("../models");
 
 // Рендер самої сторінки (у нас вже є в routes, але правильніше тримати тут)
@@ -176,56 +96,187 @@ exports.getPeriodStats = async (req, res) => {
   }
 };
 
-// 3. Отримання детального списку товарів на карантині (Для модального вікна)
-// exports.getQuarantineDetails = async (req, res) => {
-//   try {
-//     const items = await sequelize.query(
-//       `
-//             SELECT
-//                 p.name AS product_name,
-//                 p.barcode,
-//                 b.quantity,
-//                 'Перебуває на карантині' AS reason
-//             FROM batches b
-//             JOIN products p ON b.product_id = p.id
-//             WHERE b.status = 'Quarantine'
-//             ORDER BY p.name ASC;
-//         `,
-//       { type: sequelize.QueryTypes.SELECT },
-//     );
-
-//     res.json({ success: true, items });
-//   } catch (error) {
-//     console.error("Помилка завантаження карантину:", error);
-//     res.status(500).json({ success: false, message: "Помилка БД" });
-//   }
-// };
-
-// Сторінка "Персонал та Каси" (Історія змін)
 exports.getStaffPage = async (req, res) => {
   try {
-    // Сирий SQL-запит: Об'єднуємо зміни з іменами касирів
-    const shiftsHistory = await sequelize.query(
+    // 1. Отримуємо всі зміни з БД (разом з іменами касирів)
+    const shiftsRaw = await sequelize.query(
       `
-            SELECT 
-                s.id AS shift_id,
-                e.username AS cashier_name,
-                s.start_time,
-                s.end_time,
-                s.starting_cash,
-                s.expected_cash
+            SELECT s.*, u.username AS cashier_name
             FROM shifts s
-            JOIN employees e ON s.employee_id = e.id
-            ORDER BY s.start_time DESC
-            LIMIT 50; -- Показуємо останні 50 змін
+            JOIN employees u ON s.employee_id = u.id
+            ORDER BY s.start_time DESC;
         `,
       { type: sequelize.QueryTypes.SELECT },
     );
 
-    // Рендеримо нову сторінку і передаємо туди масив shiftsHistory
-    res.render("admin/staff", { shifts: shiftsHistory });
+    // 2. Проходимося по кожній зміні і рахуємо фінанси так само, як у Z-звіті
+    const shiftsWithStats = await Promise.all(
+      shiftsRaw.map(async (shift) => {
+        // Шукаємо чеки цієї зміни
+        const shiftSales = await Sale.findAll({
+          where: { shift_id: shift.id },
+        });
+        const saleIds = shiftSales.map((s) => s.id);
+
+        let cashTotal = 0;
+        let cardTotal = 0;
+        let pointsTotal = 0;
+        let totalBonusEarned = 0;
+
+        // Рахуємо нараховані бонуси
+        shiftSales.forEach((sale) => {
+          totalBonusEarned += parseFloat(sale.bonus_earned) || 0;
+        });
+
+        // Рахуємо методи оплат з таблиці SalePayment
+        if (saleIds.length > 0) {
+          const payments = await SalePayment.findAll({
+            where: { sale_id: { [Op.in]: saleIds } },
+          });
+
+          payments.forEach((p) => {
+            const amt = parseFloat(p.amount) || 0;
+            if (p.method === "Cash") cashTotal += amt;
+            if (p.method === "Card") cardTotal += amt;
+            if (p.method === "Points") pointsTotal += amt;
+          });
+        }
+
+        const startingCash = parseFloat(shift.starting_cash) || 0;
+        const totalHandedOver = startingCash + cashTotal;
+
+        // Збираємо фінальний об'єкт для таблиці
+        return {
+          ...shift,
+          cash_revenue: cashTotal,
+          card_revenue: cardTotal,
+          bonuses_spent: pointsTotal,
+          bonuses_earned: totalBonusEarned,
+          total_handed_over: totalHandedOver,
+        };
+      }),
+    );
+
+    // 3. Відправляємо оновлений масив на сторінку
+    res.render("admin/staff", {
+      title: "Персонал та Каси",
+      path: "/admin/staff",
+      user: req.user,
+      shifts: shiftsWithStats, // ТУТ ТЕПЕР ПОВНІ ДАНІ
+    });
   } catch (error) {
-    console.error("Помилка завантаження персоналу:", error);
-    res.status(500).send("Внутрішня помилка сервера");
+    console.error("Помилка завантаження сторінки персоналу:", error);
+    res.status(500).send("Помилка сервера");
+  }
+};
+
+exports.getWarehousePage = async (req, res) => {
+  try {
+    // 1. ОБОВ'ЯЗКОВО витягуємо категорії з БД (саме цього зараз не вистачає)
+    const categories = await sequelize.query(
+      `
+            SELECT id, name FROM categories ORDER BY name ASC;
+        `,
+      { type: sequelize.QueryTypes.SELECT },
+    );
+
+    // 1. ДОДАЄМО: Витягуємо товари для випадаючого списку
+    const products = await sequelize.query(
+      `SELECT id, name, sku FROM products ORDER BY name ASC;`,
+      { type: sequelize.QueryTypes.SELECT },
+    );
+
+    // 2. ДОДАЄМО: Витягуємо постачальників для випадаючого списку
+    const suppliers = await sequelize.query(
+      `SELECT id, name FROM suppliers ORDER BY name ASC;`,
+      { type: sequelize.QueryTypes.SELECT },
+    );
+
+    // 2. Витягуємо інвентар
+    const inventory = await sequelize.query(
+      `
+            SELECT 
+                b.id AS batch_id,
+                p.sku AS article,
+                p.name AS product_name,
+                c.id AS category_id,
+                c.name AS category_name,
+                b.quantity,
+                p.uom AS unit,
+                s.name AS supplier_name,
+                b.expiry_date,
+                b.status
+            FROM batches b
+            JOIN products p ON b.product_id = p.id
+            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN suppliers s ON b.supplier_id = s.id
+            ORDER BY b.expiry_date ASC;
+        `,
+      { type: sequelize.QueryTypes.SELECT },
+    );
+
+    // 3. ОБОВ'ЯЗКОВО передаємо обидва масиви на сторінку
+    res.render("admin/warehouse", {
+      title: "Управління складом",
+      path: "/admin/warehouse",
+      user: req.user,
+      inventory: inventory,
+      categories: categories,
+      products: products, // Передаємо на сторінку
+      suppliers: suppliers, // Передаємо на сторінку
+    });
+  } catch (error) {
+    console.error("Помилка завантаження сторінки складу:", error);
+    res.status(500).send("Помилка сервера");
+  }
+};
+
+exports.postReceiveBatch = async (req, res) => {
+  const { product_id, supplier_id, quantity, purchase_price, expiry_date } =
+    req.body;
+  const employee_id = req.user.id; // ID адміна, хто робить прийом
+
+  const transaction = await sequelize.transaction();
+
+  try {
+    // 1. Додаємо партію в batches
+    const newBatch = await sequelize.query(
+      `
+            INSERT INTO batches (product_id, supplier_id, quantity, expiry_date, purchase_price, status)
+            VALUES (:product_id, :supplier_id, :quantity, :expiry_date, :purchase_price, 'Active')
+            RETURNING id;
+        `,
+      {
+        replacements: {
+          product_id,
+          supplier_id,
+          quantity,
+          expiry_date,
+          purchase_price,
+        },
+        transaction,
+      },
+    );
+
+    const batch_id = newBatch[0][0].id;
+
+    // 2. Додаємо запис у inventory_logs
+    await sequelize.query(
+      `
+            INSERT INTO inventory_logs (batch_id, employee_id, operation_type, quantity_changed, reason, operation_date)
+            VALUES (:batch_id, :employee_id, 'Delivery', :quantity, 'Прийом нової партії', NOW());
+        `,
+      {
+        replacements: { batch_id, employee_id, quantity },
+        transaction,
+      },
+    );
+
+    await transaction.commit();
+    res.json({ success: true, message: "Партія успішно прийнята!" });
+  } catch (error) {
+    await transaction.rollback();
+    console.error(error);
+    res.status(500).json({ success: false, message: "Помилка прийому товару" });
   }
 };

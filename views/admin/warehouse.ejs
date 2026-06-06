@@ -1,0 +1,292 @@
+<%- include('partials/header') %> <%- include('partials/sidebar') %>
+
+<div class="main-content">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-dark">Управління складом</h2>
+    <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#receiveBatchModal">
+      <i class="bi bi-box-seam me-2"></i>Прийняти нову партію
+    </button>
+  </div>
+
+  <ul class="nav nav-tabs mb-4 border-bottom-2">
+    <li class="nav-item">
+      <a class="nav-link active fw-bold" href="#stock" data-bs-toggle="tab"
+        >Залишки (Партії)</a
+      >
+    </li>
+    <li class="nav-item">
+      <a class="nav-link text-muted" href="#orders" data-bs-toggle="tab"
+        >Замовлення (PO)</a
+      >
+    </li>
+    <li class="nav-item">
+      <a class="nav-link text-muted" href="#logs" data-bs-toggle="tab"
+        >Логи інвентаризації</a
+      >
+    </li>
+  </ul>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <div class="row g-3 mb-4 align-items-center bg-light p-3 rounded">
+        <div class="col-md-4">
+          <div class="input-group">
+            <span class="input-group-text bg-white text-muted"
+              ><i class="bi bi-search"></i
+            ></span>
+            <input
+              type="text"
+              id="warehouse-search"
+              class="form-control"
+              placeholder="Пошук за артикулом або назвою..."
+            />
+          </div>
+        </div>
+        <div class="col-md-3">
+          <select id="filter-category" class="form-select">
+    <option value="all">Всі категорії</option>
+    <% categories.forEach(function(cat) { %>
+        <option value="<%= cat.id %>"><%= cat.name %></option>
+    <% }); %>
+</select>
+        </div>
+        <div class="col-md-3">
+          <select id="filter-status" class="form-select">
+            <option value="all">Всі статуси</option>
+            <option value="active">🟢 В нормі</option>
+            <option value="warning">🟡 Спливає термін</option>
+            <option value="expired">🔴 Прострочено</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button id="reset-filters" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-x-circle"></i> Скинути
+          </button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Артикул</th>
+              <th>Назва товару</th>
+              <th>Залишок</th>
+              <th>Постачальник</th>
+              <th>Термін придатності</th>
+              <th>Статус</th>
+              <th class="text-end">Дії</th>
+            </tr>
+          </thead>
+         <tbody>
+    <% if (inventory.length === 0) { %>
+        <tr>
+            <td colspan="7" class="text-center text-muted py-4">На складі немає жодної партії</td>
+        </tr>
+    <% } else { %>
+        <% inventory.forEach(function(item) { 
+            // Розрахунок термінів придатності та фільтрів
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); 
+            
+            const expDate = new Date(item.expiry_date);
+            const diffTime = expDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let statusBadge = '';
+            let rowClass = '';
+            let expBadge = '';
+            let filterStatus = 'active'; // За замовчуванням
+
+            // Логіка підсвічування рядків і статусів
+            if (item.status === 'Disposed' || item.status === 'Списано') {
+                statusBadge = '<span class="badge bg-secondary">Disposed</span>';
+                rowClass = 'bg-secondary bg-opacity-10';
+                filterStatus = 'disposed';
+            } else if (item.status === 'Expired' || diffDays < 0) {
+                statusBadge = '<span class="badge bg-warning text-dark">Expired</span>';
+                rowClass = 'bg-danger bg-opacity-10';
+                expBadge = '<span class="badge bg-danger ms-1">Прострочено!</span>';
+                filterStatus = 'expired';
+            } else if (diffDays <= 3) {
+                statusBadge = '<span class="badge bg-success">Active</span>';
+                expBadge = '<span class="badge bg-danger ms-1">Спливає!</span>';
+                filterStatus = 'warning';
+            } else {
+                statusBadge = '<span class="badge bg-success">Active</span>';
+            }
+        %>
+            <tr class="<%= rowClass %> item-row" 
+                data-search="<%= item.article.toLowerCase() %> <%= item.product_name.toLowerCase() %>"
+                data-category="<%= item.category_id %>"
+                data-status="<%= filterStatus %>">
+                
+                <td class="text-muted small"><%= item.article %></td>
+                <td class="fw-bold"><%= item.product_name %></td>
+               <td class="fw-bold <%= item.quantity <= 0 ? 'text-danger' : '' %>">
+                    <% 
+                        // Словник перекладу одиниць виміру
+                        const unitDictionary = {
+                            'piece': 'шт',
+                            'kilogram': 'кг',
+                            'liter': 'л'
+                        };
+                        
+                        // Беремо сире значення з БД, переводимо в нижній регістр і шукаємо в словнику. 
+                        // Якщо не знайшли (наприклад, там пусто) - ставимо 'шт' за замовчуванням.
+                        const rawUnit = (item.unit || '').toLowerCase();
+                        const displayUnit = unitDictionary[rawUnit] || item.unit || 'шт';
+                    %>
+                    <%= parseFloat(item.quantity).toFixed(3) %> <%= displayUnit %>
+                </td>
+                <td><%= item.supplier_name || '—' %></td>
+                <td>
+                    <%= expDate.toLocaleDateString('uk-UA') %> <%- expBadge %>
+                </td>
+                <td><%- statusBadge %></td>
+                <td class="text-end text-nowrap">
+                    <button class="btn btn-sm btn-outline-danger" onclick="writeOffBatch('<%= item.batch_id %>')" title="Списати товар">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" title="Друк цінника">
+                        <i class="bi bi-printer"></i>
+                    </button>
+                </td>
+            </tr>
+        <% }); %>
+    <% } %>
+</tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="receiveBatchModal" tabindex="-1" aria-labelledby="receiveBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="receiveBatchModalLabel"><i class="bi bi-box-arrow-in-down me-2"></i>Прийняти нову партію товару</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="receiveBatchForm">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Оберіть товар <span class="text-danger">*</span></label>
+                            <select class="form-select" id="new-product-id" required>
+                                <option value="" disabled selected>Пошук товару...</option>
+                                <% products.forEach(function(p) { %>
+                                    <option value="<%= p.id %>">[<%= p.sku %>] <%= p.name %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Постачальник <span class="text-danger">*</span></label>
+                            <select class="form-select" id="new-supplier-id" required>
+                                <option value="" disabled selected>Оберіть постачальника...</option>
+                                <% suppliers.forEach(function(s) { %>
+                                    <option value="<%= s.id %>"><%= s.name %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Кількість <span class="text-danger">*</span></label>
+                            <input type="number" step="0.001" min="0.001" class="form-control" id="new-quantity" required placeholder="Наприклад: 15">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Закупівельна ціна (₴) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" min="0" class="form-control" id="new-price" required placeholder="0.00">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Термін придатності <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="new-expiry" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Скасувати</button>
+                <button type="button" class="btn btn-primary" onclick="submitNewBatch()">Зберегти на складі</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // Знаходимо всі елементи керування
+    const searchInput = document.getElementById('warehouse-search');
+    const categorySelect = document.getElementById('filter-category');
+    const statusSelect = document.getElementById('filter-status');
+    const resetButton = document.getElementById('reset-filters');
+    
+    // Знаходимо всі рядки таблиці
+    const rows = document.querySelectorAll('.item-row');
+
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const categoryFilter = categorySelect.value;
+        const statusFilter = statusSelect.value;
+
+        rows.forEach(row => {
+            // Безпечно читаємо атрибути (якщо їх немає, беремо пусту строку)
+            const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+            const categoryData = row.getAttribute('data-category') || '';
+            const statusData = row.getAttribute('data-status') || '';
+
+            // Перевіряємо збіги
+            const matchesSearch = searchData.includes(searchTerm);
+            const matchesCategory = (categoryFilter === 'all') || (categoryData === String(categoryFilter));
+            const matchesStatus = (statusFilter === 'all') || (statusData === statusFilter);
+
+            // Показуємо або ховаємо рядок
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Прикріплюємо події тільки якщо елементи існують на сторінці
+    if (searchInput) searchInput.addEventListener('input', filterTable);
+    if (categorySelect) categorySelect.addEventListener('change', filterTable);
+    if (statusSelect) statusSelect.addEventListener('change', filterTable);
+
+    // Логіка для кнопки "Скинути"
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            searchInput.value = '';
+            categorySelect.value = 'all';
+            statusSelect.value = 'all';
+            filterTable(); // Оновлюємо таблицю
+        });
+    }
+});
+
+async function submitNewBatch() {
+    const data = {
+        product_id: document.getElementById('new-product-id').value,
+        supplier_id: document.getElementById('new-supplier-id').value,
+        quantity: document.getElementById('new-quantity').value,
+        purchase_price: document.getElementById('new-price').value,
+        expiry_date: document.getElementById('new-expiry').value
+    };
+
+    // Перевірка на заповнення
+    if(!data.product_id || !data.quantity) return alert('Заповніть обов’язкові поля!');
+
+    try {
+        const response = await axios.post('/admin/warehouse/receive', data);
+        if(response.data.success) {
+            Swal.fire({ icon: 'success', title: 'Успішно!', text: 'Товар на складі' });
+            setTimeout(() => window.location.reload(), 1500);
+        }
+    } catch (e) {
+        Swal.fire({ icon: 'error', title: 'Помилка', text: 'Не вдалося зберегти партію' });
+    }
+}
+</script>
+
+<%- include('partials/footer') %>

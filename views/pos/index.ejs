@@ -58,7 +58,7 @@
               data-next-number="<%= nextReceiptNumber %>"
               >#00000</span
             > -->
-            <span id="current-receipt-number" class="text-primary">#00002</span>
+            <span id="current-receipt-number" class="text-primary">#00001</span>
           </h4>
         </div>
         <div class="text-end">
@@ -154,7 +154,7 @@
               type="text"
               id="loyalty-input"
               class="form-control"
-              placeholder="Телефон або прізвище..."
+              placeholder="Телефон, прізвище або ім'я..."
               autocomplete="off"
               oninput="handleCustomerSearch(this.value)"
             />
@@ -211,7 +211,7 @@
                   onclick="confirmRemoveCustomer()"
                   title="Прибрати клієнта з чека"
                 >
-                  <i class="bi bi-x-lg"></i>
+                  <i class="bi bi-lg"></i>
                 </button>
               </div>
             </div>
@@ -299,7 +299,7 @@
           </div>
 
           <div
-            class="d-flex justify-content-between align-items-center mb-4 fs-5"
+            class="d-flex justify-content-between align-items-center mb-2 fs-5"
           >
             <span id="bonus-text-label" class="text-muted"
               ><i class="bi bi-info-circle"></i> Потенційні бонуси:</span
@@ -313,7 +313,7 @@
           </div>
 
           <button
-            class="btn btn-outline-danger btn-lg w-100 py-2 mb-2 fs-4 fw-bold"
+            class="btn btn-outline-danger btn-lg w-100 py-1 mb-2 fs-4 fw-bold"
             onclick="confirmClearCart()"
           >
             <i class="bi bi-trash3"></i> Скасувати чек
@@ -540,14 +540,49 @@
   });
 
   // Годинник та встановлення послідовного номера чека
-  function updateClockAndReceiptInfo() {
-    document.getElementById("live-clock").innerText =
-      new Date().toLocaleTimeString("uk-UA");
+  // function updateClockAndReceiptInfo() {
+  //   document.getElementById("live-clock").innerText =
+  //     new Date().toLocaleTimeString("uk-UA");
 
-    // Форматуємо номер нулями спереду (наприклад: 00001, 00014)
-    const formattedNumber = String(currentReceiptNumber).padStart(5, "0");
-    document.getElementById("receipt-id").innerText = "#" + formattedNumber;
+  //   // Форматуємо номер нулями спереду (наприклад: 00001, 00014)
+  //   const formattedNumber = String(currentReceiptNumber).padStart(5, "0");
+  //   document.getElementById("receipt-id").innerText = "#" + formattedNumber;
+  // }
+  // Ваша функція залишається майже без змін
+  // 1. Окрема функція тільки для годинника (працює без зупинки)
+  function startLiveClock() {
+    const clockElement = document.getElementById("live-clock"); // Перевірте, чи такий ID у вас в HTML!
+
+    if (clockElement) {
+      // Оновлюємо відразу, щоб не чекати першу секунду
+      clockElement.innerText = new Date().toLocaleTimeString("uk-UA");
+
+      // Запускаємо безкінечний таймер (1000 мс = 1 секунда)
+      setInterval(() => {
+        clockElement.innerText = new Date().toLocaleTimeString("uk-UA");
+      }, 1000);
+    } else {
+      console.error("Помилка: не знайдено елемент годинника (live-clock)!");
+    }
   }
+
+  // 2. Окрема функція для номера чека (викликаємо, коли треба)
+  function updateReceiptNumber() {
+    const receiptElement = document.getElementById("receipt-id"); // Перевірте, чи такий ID у вас в HTML!
+
+    if (receiptElement) {
+      const formattedNumber = String(currentReceiptNumber).padStart(5, "0");
+      receiptElement.innerText = "#" + formattedNumber;
+    } else {
+      console.error("Помилка: не знайдено елемент номера чека (receipt-id)!");
+    }
+  }
+
+  // 3. Запускаємо все при відкритті сторінки
+  document.addEventListener("DOMContentLoaded", () => {
+    startLiveClock(); // Годинник пішов назавжди
+    updateReceiptNumber(); // Номер чека підтягнувся один раз
+  });
 
   function generateNewReceiptId() {
     // Збільшуємо номер на 1 для наступного чека
@@ -1437,9 +1472,8 @@
 
       // 2. Виводимо красиве вікно Z-звіту з HTML таблицею
       Swal.fire({
-        title: "🔒 Фінальний Z-Звіт",
+        title: "🔒 Фінальний Z-звіт",
         html: `
-          <p class="text-muted mb-3">Перевірте фінансові підсумки перед здачею каси</p>
           <table class="table table-bordered text-start align-middle fs-6">
             <tbody>
               <tr>
@@ -1447,7 +1481,7 @@
                 <td class="text-end fw-bold text-dark">${data.sales_count}</td>
               </tr>
               <tr>
-                <td class="text-muted">Розмінна монета (ранок):</td>
+                <td class="text-muted">Розмінна готівка (ранок):</td>
                 <td class="text-end">${data.starting_cash} ₴</td>
               </tr>
               <tr>

@@ -11,7 +11,9 @@ const adminAuth = require("../middlewares/adminAuth");
 // router.get("/admin/dashboard", adminController.getDashboard);
 
 // Маршрути для Складу (Товарознавець)
-router.get("/warehouse", warehouseController.getWarehousePage);
+// router.get("/warehouse", warehouseController.getWarehousePage);
+// Сторінка Складу для Директора
+router.get("/admin/warehouse", adminController.getWarehousePage);
 
 // Маршрути для Каси (Касир)
 router.get("/pos", posController.getPOSPage);

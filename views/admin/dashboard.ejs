@@ -188,32 +188,39 @@
     // 1. Глобальна змінна для графіка (щоб ми могли його видаляти перед малюванням нового)
     let salesChartInstance = null;
 
-    // 2. Встановлюємо дати за замовчуванням при завантаженні сторінки
+    // 1. Допоміжна функція для отримання локальної дати у форматі YYYY-MM-DD
+    function getLocalDateString(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0"); // Місяці від 0 до 11
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       // Вивід дати в шапці праворуч
       document.getElementById("current-date").innerText =
         new Date().toLocaleDateString("uk-UA");
 
       const today = new Date();
-      const todayStr = today.toISOString().split("T")[0]; // Формат YYYY-MM-DD
+      const todayStr = getLocalDateString(today); // Використовуємо нашу функцію
 
-      // Віднімаємо 7 днів для початкової дати графіка
+      // Віднімаємо 7 днів
       const lastWeek = new Date(today);
       lastWeek.setDate(today.getDate() - 7);
-      const lastWeekStr = lastWeek.toISOString().split("T")[0];
+      const lastWeekStr = getLocalDateString(lastWeek); // Використовуємо нашу функцію
 
       // Заповнюємо HTML-поля
       document.getElementById("filter-single-date").value = todayStr;
       document.getElementById("filter-start").value = lastWeekStr;
       document.getElementById("filter-end").value = todayStr;
 
+      // Встановлюємо ліміти
       document
         .getElementById("filter-single-date")
         .setAttribute("max", todayStr);
       document.getElementById("filter-start").setAttribute("max", todayStr);
       document.getElementById("filter-end").setAttribute("max", todayStr);
 
-      // Одразу завантажуємо дані при відкритті
       updateDailyStats();
       updatePeriodStats();
     });

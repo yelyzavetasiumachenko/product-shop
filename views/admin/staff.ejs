@@ -3,65 +3,271 @@
 
 <div class="main-content">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark">Контроль кас та персоналу</h2>
+        <h2 class="fw-bold text-dark">Історія касових змін</h2>
     </div>
 
+    
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
-            <h5 class="fw-bold mb-4">Історія касових змін (Z-звіти)</h5>
+
+            <div class="row g-3 mb-4 align-items-center bg-light p-3 rounded">
+    <div class="col-md-4">
+        <div class="input-group">
+            <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+            <input type="text" id="filter-search" class="form-control" placeholder="Пошук за логіном касира...">
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select id="filter-status" class="form-select">
+            <option value="all">Всі статуси</option>
+            <option value="open">🟢 Тільки відкриті</option>
+            <option value="closed">⚪ Тільки закриті</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <input type="date" id="filter-date" class="form-control" title="Фільтр за датою">
+    </div>
+    <div class="col-md-2">
+        <button id="reset-filters" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-x-circle"></i> Скинути
+        </button>
+    </div>
+</div>
             
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Касир</th>
-                            <th>Початок зміни</th>
-                            <th>Кінець зміни</th>
-                            <th>Розмінна монета</th>
-                            <th>Здано готівки (Z-звіт)</th>
-                            <th>Статус</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% shifts.forEach(function(shift) { %>
-                            <tr>
-                                <td class="fw-bold text-primary">
-                                    <i class="bi bi-person-badge me-2"></i><%= shift.cashier_name %>
-                                </td>
-                                
-                                <td><%= new Date(shift.start_time).toLocaleString('uk-UA') %></td>
-                                
-                                <td>
-                                    <%= shift.end_time ? new Date(shift.end_time).toLocaleString('uk-UA') : '—' %>
-                                </td>
-                                
-                                <td><%= parseFloat(shift.starting_cash).toFixed(2) %> ₴</td>
-                                
-                                <td class="fw-bold <%= shift.expected_cash ? 'text-success' : 'text-muted' %>">
-                                    <%= shift.expected_cash ? parseFloat(shift.expected_cash).toFixed(2) + ' ₴' : '—' %>
-                                </td>
-                                
-                                <td>
-                                    <% if (shift.end_time) { %>
-                                        <span class="badge bg-secondary">Закрита</span>
-                                    <% } else { %>
-                                        <span class="badge bg-success shadow-sm">Відкрита</span>
-                                    <% } %>
-                                </td>
-                            </tr>
-                        <% }); %>
-                        
-                        <% if (shifts.length === 0) { %>
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-4">Жодної зміни не знайдено</td>
-                            </tr>
+           <div class="table-responsive">
+             <table class="table table-hover align-middle text-nowrap">
+        <thead class="table-light">
+            <tr>
+                <th>Касир</th>
+                <th>Тривалість зміни</th>
+                <th>Розмін</th>
+                <th>Готівка (+)</th>
+                <th>Картка (+)</th>
+                <!-- <th>Бонуси (Списано)</th>
+                <th>Бонуси (Нараховано)</th> -->
+                <th>Здано готівки</th>
+                <th>Статус</th>
+                <th class="text-end">Дії</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% shifts.forEach(function(shift) { %>
+                <% 
+    // Форматуємо дату для фільтра у стандарті YYYY-MM-DD
+    const shiftDate = new Date(shift.start_time).toISOString().split('T')[0];
+%>
+<tr class="shift-row" 
+    data-cashier="<%= shift.cashier_name.toLowerCase() %>" 
+    data-status="<%= shift.end_time ? 'closed' : 'open' %>" 
+    data-date="<%= shiftDate %>">
+                    <td class="fw-bold text-primary">
+                        <i class="bi bi-person-badge me-2"></i><%= shift.cashier_name %>
+                    </td>
+                    
+                    <td>
+                        <div class="small"><%= new Date(shift.start_time).toLocaleString('uk-UA') %></div>
+                        <div class="small text-muted"><%= shift.end_time ? new Date(shift.end_time).toLocaleString('uk-UA') : 'Триває...' %></div>
+                    </td>
+                    
+                    <td><%= parseFloat(shift.starting_cash || 0).toFixed(2) %> ₴</td>
+                    
+                    <td class="text-success fw-bold">
+                        +<%= parseFloat(shift.cash_revenue || 0).toFixed(2) %> ₴
+                    </td>
+                    
+                    <td class="text-primary fw-bold">
+                        <%= parseFloat(shift.card_revenue || 0).toFixed(2) %> ₴
+                    </td>
+                    
+                   
+                    
+                    <td>
+    <%= shift.total_handed_over ? shift.total_handed_over.toFixed(2) + ' ₴' : '—' %>
+</td>
+                    
+                    <td>
+                        <% if (shift.end_time) { %>
+                            <span class="badge bg-secondary">Закрита</span>
+                        <% } else { %>
+                            <span class="badge bg-success shadow-sm">Відкрита</span>
                         <% } %>
-                    </tbody>
-                </table>
-            </div>
+                    </td>
+
+                    <td class="text-end text-nowrap">
+    <button class="btn btn-sm btn-outline-info" onclick="viewShiftDetails('<%= shift.id %>')" title="Переглянути Z-звіт">
+        <i class="bi bi-eye"></i>
+    </button>
+    
+    <% if (!shift.end_time) { %>
+        <button class="btn btn-sm btn-outline-danger ms-1" onclick="forceCloseShift('<%= shift.id %>')" title="Примусово закрити зміну">
+            <i class="bi bi-lock-fill"></i>
+        </button>
+    <% } %>
+</td>
+                </tr>
+            <% }); %>
+            
+            <% if (shifts.length === 0) { %>
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">Жодної зміни не знайдено</td>
+                </tr>
+            <% } %>
+        </tbody>
+    </table>
+         </div>
 
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById('filter-search');
+    const statusSelect = document.getElementById('filter-status');
+    const dateInput = document.getElementById('filter-date');
+    const resetButton = document.getElementById('reset-filters');
+    const rows = document.querySelectorAll('.shift-row');
+
+    const today = new Date();
+    const maxDate = today.getFullYear() + '-' + 
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(today.getDate()).padStart(2, '0');
+    
+    // Встановлюємо максимальну межу для календаря
+    dateInput.max = maxDate;
+
+    // Головна функція фільтрації
+    function filterTable() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const statusFilter = statusSelect.value;
+        const dateFilter = dateInput.value;
+
+        rows.forEach(row => {
+            const cashier = row.getAttribute('data-cashier');
+            const status = row.getAttribute('data-status');
+            const date = row.getAttribute('data-date');
+
+            // Перевіряємо збіги за всіма 3 критеріями
+            const matchesSearch = cashier.includes(searchTerm);
+            const matchesStatus = (statusFilter === 'all') || (status === statusFilter);
+            const matchesDate = (dateFilter === '') || (date === dateFilter);
+
+            // Якщо рядок підходить під УСІ умови — показуємо його, якщо ні — ховаємо
+            if (matchesSearch && matchesStatus && matchesDate) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Слухаємо зміни у полях (щоб фільтрувало під час вводу)
+    searchInput.addEventListener('input', filterTable);
+    statusSelect.addEventListener('change', filterTable);
+    dateInput.addEventListener('change', filterTable);
+
+    // Кнопка "Скинути"
+    resetButton.addEventListener('click', () => {
+        searchInput.value = '';
+        statusSelect.value = 'all';
+        dateInput.value = '';
+        filterTable(); // Оновлюємо таблицю після очищення
+    });
+});
+
+// === ІНТЕРАКТИВНІ КНОПКИ (ДІЇ) ===
+
+// 1. Функція перегляду деталей
+async function viewShiftDetails(shiftId) {
+    try {
+        // Використовуємо ваш існуючий API для генерації Z-звіту
+        const response = await axios.get(`/api/auth/shift-summary/${shiftId}`);
+        if (!response.data.success) throw new Error("Не вдалося отримати звіт");
+
+        const data = response.data.summary;
+
+        // Виводимо таке ж вікно, як у касира, але без кнопки "Здати касу"
+        Swal.fire({
+            title: "📊 Деталі Z-звіту",
+            html: `
+                <table class="table table-bordered text-start align-middle fs-6">
+                    <tbody>
+                        <tr>
+                            <td class="fw-bold bg-light">Кількість чеків:</td>
+                            <td class="text-end fw-bold text-dark">${data.sales_count}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Розмінна монета (ранок):</td>
+                            <td class="text-end">${data.starting_cash} ₴</td>
+                        </tr>
+                        <tr>
+                            <td class="text-success fw-bold">Виручка ГОТІВКА (+):</td>
+                            <td class="text-end text-success fw-bold">+${data.cash_sales} ₴</td>
+                        </tr>
+                        <tr>
+                            <td class="text-primary fw-bold">Виручка КАРТКА:</td>
+                            <td class="text-end text-primary fw-bold">${data.card_sales} ₴</td>
+                        </tr>
+                        <tr class="table-warning">
+                            <td class="text-warning-emphasis">Списано бонусами (Points):</td>
+                            <td class="text-end">-${data.bonuses_spent} ₴</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Нараховано бонусів клієнтам:</td>
+                            <td class="text-end text-muted">+${data.bonuses_earned} ₴</td>
+                        </tr>
+                        <tr class="table-success fs-5">
+                            <td class="fw-bold text-success">МАЄ БУТИ В КАСІ:</td>
+                            <td class="text-end fw-bold text-success">${data.expected_cash} ₴</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `,
+            confirmButtonColor: "#0dcaf0",
+            confirmButtonText: "Закрити",
+            width: "450px"
+        });
+    } catch (error) {
+        console.error(error);
+        Swal.fire({ icon: "error", title: "Помилка", text: "Не вдалося завантажити деталі зміни." });
+    }
+}
+
+// 2. Функція примусового закриття
+async function forceCloseShift(shiftId) {
+    // Запитуємо підтвердження у директора
+    const result = await Swal.fire({
+        title: "Примусове закриття",
+        text: "Ви впевнені, що хочете закрити цю зміну? Касир більше не зможе пробивати чеки.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc3545",
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: '<i class="bi bi-lock-fill"></i> Так, закрити',
+        cancelButtonText: "Скасувати"
+    });
+
+    if (result.isConfirmed) {
+        try {
+            // Використовуємо ваш існуючий API для закриття
+            const closeResponse = await axios.post("/api/auth/close-shift", { shift_id: shiftId });
+
+            if (closeResponse.data.success) {
+                await Swal.fire({
+                    icon: "success",
+                    title: "Зміну закрито!",
+                    text: "Касу успішно закрито адміністратором.",
+                    confirmButtonColor: "#198754"
+                });
+                // Оновлюємо сторінку, щоб змінився статус у таблиці
+                window.location.reload(); 
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire({ icon: "error", title: "Помилка", text: "Не вдалося закрити зміну." });
+        }
+    }
+}
+</script>
 
 <%- include('partials/footer') %>
