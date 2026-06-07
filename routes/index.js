@@ -14,6 +14,17 @@ const adminAuth = require("../middlewares/adminAuth");
 // router.get("/warehouse", warehouseController.getWarehousePage);
 // Сторінка Складу для Директора
 router.get("/admin/warehouse", adminController.getWarehousePage);
+// Обробка форми прийому нової партії
+router.post(
+  "/admin/warehouse/receive",
+  adminAuth,
+  adminController.postReceiveBatch,
+);
+router.post(
+  "/admin/warehouse/dispose",
+  adminAuth,
+  adminController.postDisposeBatch,
+);
 
 // Маршрути для Каси (Касир)
 router.get("/pos", posController.getPOSPage);
@@ -24,6 +35,9 @@ router.get("/api/customers/search", posController.searchCustomers);
 router.post("/api/customers", posController.createCustomer);
 
 router.post("/api/pos/checkout", posController.checkout); // API для оплати чеку
+
+// Сторінка клієнтів
+router.get("/admin/clients", adminController.getClientsPage);
 
 // Відкриття сторінки логіну
 // router.get("/pos/login", (req, res) => res.render("pos/login"));
@@ -74,5 +88,9 @@ router.get(
 
 // Сторінка Персоналу для Директора
 router.get("/admin/staff", adminController.getStaffPage);
+
+router.post("/admin/clients/edit", adminController.postEditClient);
+router.post("/admin/clients/toggle-card", adminController.postToggleCardStatus);
+router.delete("/admin/clients/:id", adminController.deleteClient);
 
 module.exports = router;

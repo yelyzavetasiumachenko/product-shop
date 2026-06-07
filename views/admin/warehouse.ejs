@@ -1,6 +1,30 @@
 <%- include('partials/header') %> <%- include('partials/sidebar') %>
 
 <div class="main-content">
+    <style>
+    /* 1. Стиль для звичайних (неактивних) вкладок */
+    .custom-tabs .nav-link {
+        color: #6c757d !important; /* Примусово робимо сірими */
+        font-weight: normal !important;
+        background-color: transparent !important; /* Прибираємо сірий фон Bootstrap */
+        border: none !important; /* Прибираємо стандартні рамки */
+        border-bottom: 2px solid transparent !important; /* Місце для лінії */
+    }
+
+    /* 2. Стиль при наведенні мишкою */
+    .custom-tabs .nav-link:hover {
+        color: #0d6efd !important; /* Синіє при наведенні */
+    }
+
+    /* 3. Стиль для ОБРАНОЇ (активної) вкладки */
+    .custom-tabs .nav-link.active {
+        color: #0d6efd !important; /* Блакитний текст */
+        font-weight: bold !important; /* Жирний текст */
+        background-color: transparent !important; /* Прибираємо білу коробочку */
+        border: none !important;
+        border-bottom: 2px solid #0d6efd !important; /* Синя лінія знизу */
+    }
+</style>
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="fw-bold text-dark">Управління складом</h2>
     <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#receiveBatchModal">
@@ -8,25 +32,21 @@
     </button>
   </div>
 
-  <ul class="nav nav-tabs mb-4 border-bottom-2">
+  <ul class="nav nav-tabs custom-tabs border-bottom-2 mb-2">
     <li class="nav-item">
-      <a class="nav-link active fw-bold" href="#stock" data-bs-toggle="tab"
-        >Залишки (Партії)</a
-      >
+      <a class="nav-link active" href="#stock" data-bs-toggle="tab" data-bs-target="#stock-tab-pane">Залишки (партії)</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link text-muted" href="#orders" data-bs-toggle="tab"
-        >Замовлення (PO)</a
-      >
+      <a class="nav-link" href="#orders" data-bs-toggle="tab" data-bs-target="#orders-tab-pane">Замовлення (PO)</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link text-muted" href="#logs" data-bs-toggle="tab"
-        >Логи інвентаризації</a
-      >
+      <a class="nav-link" href="#logs" data-bs-toggle="tab" data-bs-target="#logs-tab-pane">Логи інвентаризації</a>
     </li>
-  </ul>
+  </ul> 
+  <div class="tab-content">
 
-  <div class="card border-0 shadow-sm">
+    <div class="tab-pane fade show active" id="stock-tab-pane" role="tabpanel" tabindex="0">
+        <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
       <div class="row g-3 mb-4 align-items-center bg-light p-3 rounded">
         <div class="col-md-4">
@@ -103,7 +123,7 @@
                 statusBadge = '<span class="badge bg-secondary">Disposed</span>';
                 rowClass = 'bg-secondary bg-opacity-10';
                 filterStatus = 'disposed';
-            } else if (item.status === 'Expired' || diffDays < 0) {
+            } else if (item.status === 'Expired' || diffDays <= 0) {
                 statusBadge = '<span class="badge bg-warning text-dark">Expired</span>';
                 rowClass = 'bg-danger bg-opacity-10';
                 expBadge = '<span class="badge bg-danger ms-1">Прострочено!</span>';
@@ -148,9 +168,7 @@
                     <button class="btn btn-sm btn-outline-danger" onclick="writeOffBatch('<%= item.batch_id %>')" title="Списати товар">
                         <i class="bi bi-trash"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary ms-1" title="Друк цінника">
-                        <i class="bi bi-printer"></i>
-                    </button>
+                    
                 </td>
             </tr>
         <% }); %>
@@ -160,6 +178,111 @@
       </div>
     </div>
   </div>
+        </div>
+
+
+    <div class="tab-pane fade" id="orders-tab-pane" role="tabpanel" aria-labelledby="orders-tab" tabindex="0">
+        <table class="table table-hover align-middle">
+    <thead class="table-light">
+        <tr>
+            <th>№ Замовлення</th>
+            <th>Постачальник</th>
+            <th style="max-width: 250px;">Перелік товарів</th>
+            <th>Дата доставки</th>
+            <th>Сума</th>
+            <th>Статус</th>
+        </tr>
+    </thead>
+    <tbody>
+        <% if (!purchaseOrders || purchaseOrders.length === 0) { %>
+            <tr><td colspan="7" class="text-center text-muted py-4">Немає активних замовлень</td></tr>
+        <% } else { %>
+            <% purchaseOrders.forEach(function(po) { 
+                // Визначаємо колір бейджика залежно від статусу
+                let badgeClass = 'bg-secondary';
+                if (po.status === 'Delivered') badgeClass = 'bg-success';
+                if (po.status === 'Pending') badgeClass = 'bg-warning text-dark';
+                if (po.status === 'Approved') badgeClass = 'bg-primary';
+            %>
+                <tr>
+                    <td class="text-muted fw-bold">...<%= po.id.slice(-6).toUpperCase() %></td>
+                    
+                    <td class="fw-bold"><%= po.supplier_name || 'Невідомий' %></td>
+                    
+                    <td class="small" style="max-width: 250px;" title="<%= po.products_list %>">
+                        <%- po.products_list || 'Немає товарів' %>
+                    </td>
+                    
+                    <td><%= new Date(po.expected_delivery_date).toLocaleDateString('uk-UA') %></td>
+                    
+                    <td class="fw-bold"><%= po.total_sum ? parseFloat(po.total_sum).toFixed(2) + ' ₴' : '—' %></td>
+                    
+                    <td><span class="badge <%= badgeClass %>"><%= po.status %></span></td>
+                    
+                    
+                </tr>
+            <% }); %>
+        <% } %>
+    </tbody>
+</table>
+        </div>
+
+    <div class="tab-pane fade" id="logs-tab-pane" role="tabpanel" aria-labelledby="logs-tab" tabindex="0">
+        <div class="table-responsive mt-3">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Дата та час</th>
+                    <th>Працівник</th>
+                    <th>Тип операції</th>
+                    <th>Товар</th>
+                    <th>Зміна кількості</th>
+                    <th>Причина</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if (!logs || logs.length === 0) { %>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Жодного запису не знайдено</td></tr>
+                <% } else { %>
+                    <% logs.forEach(function(log) { 
+                        // Словник для перекладу типів операцій
+                        const opTypes = {
+                            'Delivery': { text: 'Прийом', badge: 'bg-primary' },
+                            'Disposal': { text: 'Списання', badge: 'bg-danger' },
+                            'Adjustment': { text: 'Коригування', badge: 'bg-warning text-dark' },
+                            'Inspection': { text: 'Перевірка', badge: 'bg-info text-dark' }
+                        };
+                        const op = opTypes[log.operation_type] || { text: log.operation_type, badge: 'bg-secondary' };
+                        
+                        const dateObj = new Date(log.operation_date);
+                    %>
+                        <tr>
+                            <td class="small text-muted">
+                                <%= dateObj.toLocaleDateString('uk-UA') %> <br>
+                                <%= dateObj.toLocaleTimeString('uk-UA') %>
+                            </td>
+                            <td><i class="bi bi-person me-1"></i><%= log.employee_name %></td>
+                            <td><span class="badge <%= op.badge %>"><%= op.text %></span></td>
+                            <td>
+                                <span class="small text-muted">[<%= log.sku %>]</span><br>
+                                <span class="fw-bold"><%= log.product_name %></span>
+                            </td>
+                            <td class="fw-bold <%= log.quantity_changed > 0 ? 'text-success' : 'text-danger' %>">
+                                <%= log.quantity_changed > 0 ? '+' : '' %><%= parseFloat(log.quantity_changed).toFixed(3) %>
+                            </td>
+                            <td class="text-muted small"><%= log.reason || '—' %></td>
+                        </tr>
+                    <% }); %>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+        </div>
+
+  </div> 
+  </div>
+
+  
 </div>
 
 <div class="modal fade" id="receiveBatchModal" tabindex="-1" aria-labelledby="receiveBatchModalLabel" aria-hidden="true">
@@ -285,6 +408,48 @@ async function submitNewBatch() {
         }
     } catch (e) {
         Swal.fire({ icon: 'error', title: 'Помилка', text: 'Не вдалося зберегти партію' });
+    }
+}
+
+async function writeOffBatch(batchId) {
+    // Запитуємо причину списання через SweetAlert
+    const { value: reason } = await Swal.fire({
+        title: 'Списання товару',
+        input: 'select',
+        inputOptions: {
+            'Закінчився термін придатності': 'Закінчився термін придатності',
+            'Пошкоджене пакування': 'Пошкоджене пакування',
+            'Брак від постачальника': 'Брак від постачальника',
+            'Інше': 'Інше'
+        },
+        inputPlaceholder: 'Оберіть причину списання',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: '<i class="bi bi-trash"></i> Списати',
+        cancelButtonText: 'Скасувати',
+        inputValidator: (value) => {
+            return new Promise((resolve) => {
+                if (value) { resolve(); } 
+                else { resolve('Потрібно обрати причину!'); }
+            });
+        }
+    });
+
+    if (reason) {
+        try {
+            const response = await axios.post('/admin/warehouse/dispose', {
+                batch_id: batchId,
+                reason: reason
+            });
+
+            if (response.data.success) {
+                await Swal.fire('Списано!', 'Товар успішно утилізовано.', 'success');
+                window.location.reload(); // Оновлюємо таблицю
+            }
+        } catch (error) {
+            Swal.fire('Помилка', 'Не вдалося списати товар.', 'error');
+            console.error(error);
+        }
     }
 }
 </script>
