@@ -465,6 +465,7 @@
 </div>
 
 <script>
+  localStorage.setItem("shift_id", "<%= shiftId %>");
   let cart = [];
   let currentCustomer = null;
   let paymentModalObj = null;
@@ -479,35 +480,24 @@
     return uomUa[uom] || uom;
   }
 
-  // САМИЙ ПОЧАТОК ТЕГУ <script> у views/pos/index.ejs
-  const currentShiftId = localStorage.getItem("shift_id");
-  const cashierName = localStorage.getItem("cashier_name");
-  var userRole = localStorage.getItem("role_id");
+  // Отримуємо дані про зміну з пам'яті (це поки що залишаємо)
+  // const currentShiftId = localStorage.getItem("shift_id");
 
-  // Якщо касир не авторизований - викидаємо його на сторінку логіну
+  // // Якщо немає відкритої зміни - кидаємо на логін
   // if (!currentShiftId) {
-  //   window.location.href = "/pos/login";
+  //   window.location.href = "/login";
   // }
-  // Якщо користувач не авторизований взагалі АБО його роль НЕ 2 (не касир)
-  if (!userRole || userRole !== "a0000000-0000-0000-0000-000000000001") {
-    alert("Доступ заборонено! Це робоче місце виключно для касирів.");
-    window.location.href = "/login";
-  }
 
-  // Якщо це касир, але в нього немає відкритої зміни
-  if (userRole === "a0000000-0000-0000-0000-000000000001" && !currentShiftId) {
-    window.location.href = "/login";
-  }
+  // Якщо каса заблокована через перерву - миттєво перекидаємо на екран розблокування
+  // if (localStorage.getItem("pos_locked") === "true") {
+  //   window.location.href = "/pos/lock";
+  // }
 
-  // НОВЕ: Якщо каса заблокована через перерву - миттєво перекидаємо на екран розблокування
-  if (localStorage.getItem("pos_locked") === "true") {
-    window.location.href = "/pos/lock";
-  }
-
-  // Виводимо ім'я касира в шапці (якщо у вас є елемент з id="cashier-name-display")
+  // Виводимо ім'я касира в шапці (ТЕПЕР БЕРЕМО НАДІЙНІ ДАНІ З БЕКЕНДУ)
   document.addEventListener("DOMContentLoaded", () => {
     const nameDisplay = document.getElementById("cashier-name-display");
-    if (nameDisplay && cashierName) nameDisplay.innerText = cashierName;
+    // Використовуємо EJS тег, щоб вставити ім'я з сесії
+    if (nameDisplay) nameDisplay.innerText = "<%= user.username %>";
   });
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -539,17 +529,6 @@
       });
   });
 
-  // Годинник та встановлення послідовного номера чека
-  // function updateClockAndReceiptInfo() {
-  //   document.getElementById("live-clock").innerText =
-  //     new Date().toLocaleTimeString("uk-UA");
-
-  //   // Форматуємо номер нулями спереду (наприклад: 00001, 00014)
-  //   const formattedNumber = String(currentReceiptNumber).padStart(5, "0");
-  //   document.getElementById("receipt-id").innerText = "#" + formattedNumber;
-  // }
-  // Ваша функція залишається майже без змін
-  // 1. Окрема функція тільки для годинника (працює без зупинки)
   function startLiveClock() {
     const clockElement = document.getElementById("live-clock"); // Перевірте, чи такий ID у вас в HTML!
 
@@ -852,13 +831,6 @@
     checkoutBtn.disabled = false;
 
     let totalAmount = 0;
-
-    // Словник для перекладу одиниць вимірювання
-    // const uomUa = {
-    //   Piece: "шт",
-    //   Kilogram: "кг",
-    //   Liter: "л",
-    // };
 
     cart.forEach((item) => {
       const itemSum = item.quantity * item.price;
@@ -1184,27 +1156,6 @@
     paymentModal.show();
   }
 
-  // 2. Валідація вводу бонусів (щоб не списали більше ніж є)
-  // function validateBonusSpend() {
-  //   const input = document.getElementById("bonus-spend-input");
-  //   let spendVal = parseFloat(input.value) || 0;
-  //   const maxVal = parseFloat(input.max) || 0;
-
-  //   if (spendVal < 0) spendVal = 0;
-  //   if (spendVal > maxVal) spendVal = maxVal;
-  //   input.value = spendVal;
-
-  //   // Перераховуємо суму "До сплати" з урахуванням знижки
-  //   let totalAmount = 0;
-  //   cart.forEach((item) => (totalAmount += item.price * item.quantity));
-
-  //   const finalTotal = totalAmount - spendVal;
-  //   document.getElementById("modal-total-display").innerText =
-  //     finalTotal.toFixed(2);
-
-  //   calculateChange(); // Оновлюємо решту, якщо відкрито калькулятор готівки
-  // }
-  // 2. Валідація вводу бонусів (БЕЗ стирання крапки)
   function validateBonusSpend() {
     const input = document.getElementById("bonus-spend-input");
     const maxVal = parseFloat(input.max) || 0;
@@ -1421,56 +1372,20 @@
     });
   }
 
-  // Функція виходу (закриття зміни)
-  // function logoutCashier() {
-  //   Swal.fire({
-  //     title: "Закрити зміну?",
-  //     text: "Ви дійсно хочете завершити роботу та вийти з акаунту?",
-  //     icon: "question",
-  //     showCancelButton: true,
-  //     confirmButtonColor: "#d33",
-  //     cancelButtonColor: "#6c757d",
-  //     confirmButtonText: "Так, вийти",
-  //     cancelButtonText: "Скасувати",
-  //   }).then(async (result) => {
-  //     if (result.isConfirmed) {
-  //       const shiftId = localStorage.getItem("shift_id");
-
-  //       try {
-  //         // Відправляємо запит на бекенд, щоб записати end_time
-  //         if (shiftId) {
-  //           await axios.post("/api/auth/close-shift", { shift_id: shiftId });
-  //         }
-  //       } catch (error) {
-  //         console.error("Не вдалося синхронізувати закриття з сервером", error);
-  //       }
-
-  //       // Очищаємо пам'ять браузера
-  //       localStorage.removeItem("shift_id");
-  //       localStorage.removeItem("cashier_name");
-
-  //       // Перекидаємо на сторінку логіну
-  //       window.location.href = "/pos/login";
-  //     }
-  //   });
-  // }
-
   // Функція закриття зміни з фінальним Z-звітом
   async function logoutCashier() {
     const shiftId = localStorage.getItem("shift_id");
     if (!shiftId) {
-      window.location.href = "/login";
+      window.location.href = "/logout"; // Оновлено
       return;
     }
 
     try {
-      // 1. Спочатку запитуємо звіт у сервера
       const response = await axios.get(`/api/auth/shift-summary/${shiftId}`);
       if (!response.data.success) throw new Error("Не вдалося отримати звіт");
 
       const data = response.data.summary;
 
-      // 2. Виводимо красиве вікно Z-звіту з HTML таблицею
       Swal.fire({
         title: "🔒 Фінальний Z-звіт",
         html: `
@@ -1509,7 +1424,7 @@
           <p class="text-danger small fw-bold mt-2 mb-0">⚠️ Увага! Після натискання зміну буде закрито остаточно.</p>
         `,
         showCancelButton: true,
-        confirmButtonColor: "#198754", // Зелена кнопка успіху
+        confirmButtonColor: "#198754",
         cancelButtonColor: "#6c757d",
         confirmButtonText:
           '<i class="bi bi-cash-register"></i> Здати касу та вийти',
@@ -1517,25 +1432,23 @@
         width: "450px",
       }).then(async (result) => {
         if (result.isConfirmed) {
-          // 3. Якщо касир підтвердив, викликаємо API закриття
           const closeResponse = await axios.post("/api/auth/close-shift", {
             shift_id: shiftId,
           });
 
           if (closeResponse.data.success) {
-            // Очищаємо браузер
             localStorage.removeItem("shift_id");
             localStorage.removeItem("cashier_name");
             localStorage.removeItem("pos_locked");
 
-            // Перенаправляємо на логін
             Swal.fire({
               icon: "success",
               title: "Зміну закрито!",
               text: "Каса успішно здана. Гарного вечора!",
               confirmButtonColor: "#198754",
             }).then(() => {
-              window.location.href = "/login";
+              // ВАЖЛИВА ЗМІНА: Викликаємо маршрут знищення сесії
+              window.location.href = "/logout";
             });
           }
         }
@@ -1550,11 +1463,9 @@
     }
   }
 
-  // Перехід у режим перерви
+  // Перехід у режим перерви (тут усе чудово, нічого міняти не треба)
   function goOnBreak() {
-    // Ставимо мітку блокування, але НЕ видаляємо shift_id
     localStorage.setItem("pos_locked", "true");
-    // Перенаправляємо на екран блокування
     window.location.href = "/pos/lock";
   }
 

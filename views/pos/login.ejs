@@ -177,12 +177,11 @@
     class="bg-light d-flex align-items-center justify-content-center"
     style="height: 100vh"
   >
-    <div class="card shadow-lg border-0" style="width: 400px">
+    <!-- <div class="card shadow-lg border-0" style="width: 400px">
       <div class="card-body p-5">
         <div class="text-center mb-4">
           <i class="bi bi-shop text-success" style="font-size: 3rem"></i>
           <h3 class="fw-bold mt-2">ERP Market</h3>
-          <!-- <p class="text-muted">Єдина система авторизації</p> -->
         </div>
 
         <div class="mb-3">
@@ -213,9 +212,51 @@
           <i class="bi bi-box-arrow-in-right"></i> Увійти в систему
         </button>
       </div>
+    </div> -->
+
+    <div class="card shadow-lg border-0" style="width: 400px">
+      <div class="card-body p-5">
+        <div class="text-center mb-4">
+          <i class="bi bi-shop text-success" style="font-size: 3rem"></i>
+          <h3 class="fw-bold mt-2">ERP Market</h3>
+        </div>
+
+        <form action="/login" method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Логін</label>
+            <input
+              type="text"
+              name="username"
+              id="username"
+              class="form-control form-control-lg"
+              placeholder="Введіть логін"
+              required
+            />
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold">Пароль</label>
+            <input
+              type="password"
+              name="password"
+              id="password"
+              class="form-control form-control-lg"
+              placeholder="Введіть пароль"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-success btn-lg w-100 fw-bold shadow-sm"
+          >
+            <i class="bi bi-box-arrow-in-right"></i> Увійти в систему
+          </button>
+        </form>
+      </div>
     </div>
 
-    <script>
+    <!-- <script>
       // Очищаємо залишки старих сесій при відкритті сторінки логіну
       localStorage.removeItem("shift_id");
       localStorage.removeItem("role_id");
@@ -264,6 +305,6 @@
           });
         }
       }
-    </script>
+    </script> -->
   </body>
 </html>

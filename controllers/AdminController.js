@@ -162,7 +162,7 @@ exports.getStaffPage = async (req, res) => {
     res.render("admin/staff", {
       title: "Персонал та Каси",
       path: "/admin/staff",
-      user: req.user,
+      user: req.session.user,
       shifts: shiftsWithStats, // ТУТ ТЕПЕР ПОВНІ ДАНІ
     });
   } catch (error) {
@@ -326,7 +326,7 @@ exports.getWarehousePage = async (req, res) => {
     res.render("admin/warehouse", {
       title: "Управління складом",
       path: "/admin/warehouse",
-      user: req.user || req.admin,
+      user: req.session.user,
       inventory: inventory,
       categories: categories,
       products: products,
@@ -476,7 +476,7 @@ exports.getClientsPage = async (req, res) => {
     res.render("admin/clients", {
       title: "Клієнти та Лояльність",
       path: "/admin/clients",
-      user: req.admin || req.user,
+      user: req.session.user,
       clients: clients,
     });
   } catch (error) {

@@ -4,6 +4,7 @@ const path = require("path");
 const app = express();
 const routes = require("./routes");
 const { sequelize } = require("./models");
+const session = require("express-session");
 
 // Налаштування шаблонізатора EJS
 app.set("view engine", "ejs");
@@ -15,6 +16,16 @@ app.use(express.urlencoded({ extended: true }));
 
 // Налаштування статичних файлів (CSS, JS-скрипти клієнта)
 app.use(express.static(path.join(__dirname, "public")));
+
+// Вмикаємо сесії
+app.use(
+  session({
+    secret: "erp-super-secret-key", // Ключ для шифрування
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }, // false, бо ми працюємо на localhost (без HTTPS)
+  }),
+);
 
 // Реєструємо головний роутер
 app.use("/", routes);

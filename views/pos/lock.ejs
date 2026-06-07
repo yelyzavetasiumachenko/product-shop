@@ -38,7 +38,7 @@
           ></div>
           <h3 class="fw-bold text-warning">Каса на перерві</h3>
           <p class="text-light opacity-75 fs-5">
-            Касир: <span id="display-cashier-name" class="fw-bold">...</span>
+            Касир: <span class="fw-bold"><%= user.username %></span>
           </p>
         </div>
 
@@ -66,6 +66,47 @@
     </div>
 
     <script>
+      // Функція розблокування
+      async function unlockPOS() {
+        const password = document.getElementById("lock-password").value.trim();
+
+        if (!password) {
+          Swal.fire({
+            icon: "warning",
+            title: "Увага",
+            text: "Введіть пароль!",
+          });
+          return;
+        }
+
+        try {
+          // Відправляємо запит на сервер для перевірки пароля
+          // Використовуємо EJS для підстановки правильного логіна
+          const response = await axios.post("/api/auth/unlock", {
+            username: "<%= user.username %>",
+            password: password,
+          });
+
+          if (response.data.success) {
+            // Знімаємо мітку блокування перерви
+            localStorage.removeItem("pos_locked");
+            // Повертаємо на робоче місце касира (зміна залишається тією самою)
+            window.location.href = "/pos";
+          }
+        } catch (error) {
+          Swal.fire({
+            icon: "error",
+            title: "Помилка",
+            text: error.response?.data?.message || "Невірний пароль",
+            confirmButtonColor: "#ffc107",
+          });
+
+          // Очищаємо поле вводу, щоб було зручно вводити знову
+          document.getElementById("lock-password").value = "";
+        }
+      }
+    </script>
+    <!-- <script>
       // Захист: якщо касир взагалі не увійшов у зміну, відправляємо на повний логін
       if (!localStorage.getItem("shift_id")) {
         window.location.href = "/login";
@@ -111,6 +152,6 @@
           });
         }
       }
-    </script>
+    </script> -->
   </body>
 </html>

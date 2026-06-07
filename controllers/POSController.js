@@ -29,7 +29,8 @@ exports.getPOSPage = async (req, res) => {
     });
 
     res.render("pos/index", {
-      user: { username: "snr_cashier_olga" },
+      user: req.session.user,
+      shiftId: req.session.shift_id,
       // Передаємо на фронтенд номер для наступного чека
       nextReceiptNumber: todaysSalesCount + 1,
     });
